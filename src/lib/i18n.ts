@@ -4,6 +4,7 @@ export const translations = {
   nb: {
     nav: {
       dashboard: 'Oversikt',
+      bestilling: 'Bestilling',
       trends: 'Trend-analytiker',
       production: 'Produksjon',
       library: 'Videobibliotek',
@@ -14,6 +15,7 @@ export const translations = {
     },
     pageSub: {
       dashboard: 'Ditt innholds-univers på ett sted',
+      bestilling: 'Bestill ny AI-videoproduksjon',
       trends: 'AI-oppdagede trender fra TikTok, YouTube og Google',
       production: 'Aktive og fullforte videoproduksjoner',
       library: 'Alle ferdige videoer klar for distribusjon',
@@ -158,6 +160,7 @@ export const translations = {
   en: {
     nav: {
       dashboard: 'Overview',
+      bestilling: 'Order',
       trends: 'Trend Analyzer',
       production: 'Production',
       library: 'Video Library',
@@ -168,6 +171,7 @@ export const translations = {
     },
     pageSub: {
       dashboard: 'Your content universe in one place',
+      bestilling: 'Order a new AI video production',
       trends: 'AI-detected trends from TikTok, YouTube and Google',
       production: 'Active and completed video productions',
       library: 'All finished videos ready for distribution',

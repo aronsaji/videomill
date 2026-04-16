@@ -81,4 +81,19 @@ export interface AnalyticsSnapshot {
   date: string;
 }
 
-export type Page = 'dashboard' | 'trends' | 'production' | 'library' | 'distribution' | 'engagement' | 'analytics' | 'settings';
+export type Page = 'dashboard' | 'trends' | 'production' | 'library' | 'distribution' | 'engagement' | 'analytics' | 'settings' | 'bestilling';
+
+export interface Order {
+  id: string;
+  user_id: string;
+  trend_id: string | null;
+  topic: string;
+  prompt: string;
+  platform: string;
+  language: string;
+  voice_id: string;
+  video_format: string;
+  status: 'pending' | 'processing' | 'complete' | 'failed';
+  n8n_response: string | null;
+  created_at: string;
+}

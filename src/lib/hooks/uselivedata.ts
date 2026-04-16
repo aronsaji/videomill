@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import { Trend, Production, Video, VideoDistribution, Comment } from '../types';
+import { Trend, Production, Video, VideoDistribution, Comment, Order } from '../types';
 
 function useRealtimeTable<T extends { id: string }>(
   table: string,
@@ -112,4 +112,23 @@ export async function createProduction(data: {
 
 export async function updateCommentReply(id: string, reply_text: string) {
   return supabase.from('comments').update({ replied: true, reply_text }).eq('id', id);
+}
+
+export function useOrders() {
+  return useRealtimeTable<Order>('orders', async () => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as Order[];
+  });
+}
+
+export async function createOrder(order: Omit<Order, 'id' | 'created_at' | 'n8n_response' | 'status'>) {
+  return supabase
+    .from('orders')
+    .insert({ ...order, status: 'pending' })
+    .select()
+    .single();
 }

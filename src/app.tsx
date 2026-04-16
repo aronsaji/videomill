@@ -12,6 +12,7 @@ import Distribution from './pages/distribution';
 import Engagement from './pages/engagement';
 import Analytics from './pages/analytics';
 import Settings from './pages/settings';
+import Bestilling from './pages/bestilling';
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -37,6 +38,7 @@ function AppContent() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard': return <Dashboard onNavigate={setCurrentPage} />;
+      case 'bestilling': return <Bestilling />;
       case 'trends': return <Trends />;
       case 'production': return <Production />;
       case 'library': return <Library />;

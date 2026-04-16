@@ -1,4 +1,4 @@
-import { LayoutDashboard, TrendingUp, Film, Library, Share2, MessageSquare, BarChart3, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, Film, Library, Share2, MessageSquare, BarChart3, Settings, LogOut, ShoppingCart } from 'lucide-react';
 import { Page } from '../lib/types';
 import { useLanguage } from '../contexts/languageContext';
 import { useAuth } from '../contexts/authContext';
@@ -14,13 +14,14 @@ export default function Sidebar({ current, onNavigate }: SidebarProps) {
   const { signOut } = useAuth();
 
   const navItems: { page: Page; label: string; icon: React.ReactNode }[] = [
-    { page: 'dashboard', label: t.nav.dashboard, icon: <LayoutDashboard size={17} /> },
-    { page: 'trends', label: t.nav.trends, icon: <TrendingUp size={17} /> },
-    { page: 'production', label: t.nav.production, icon: <Film size={17} /> },
-    { page: 'library', label: t.nav.library, icon: <Library size={17} /> },
+    { page: 'dashboard',    label: t.nav.dashboard,    icon: <LayoutDashboard size={17} /> },
+    { page: 'bestilling',   label: t.nav.bestilling,   icon: <ShoppingCart size={17} /> },
+    { page: 'trends',       label: t.nav.trends,       icon: <TrendingUp size={17} /> },
+    { page: 'production',   label: t.nav.production,   icon: <Film size={17} /> },
+    { page: 'library',      label: t.nav.library,      icon: <Library size={17} /> },
     { page: 'distribution', label: t.nav.distribution, icon: <Share2 size={17} /> },
-    { page: 'engagement', label: t.nav.engagement, icon: <MessageSquare size={17} /> },
-    { page: 'analytics', label: t.nav.analytics, icon: <BarChart3 size={17} /> },
+    { page: 'engagement',   label: t.nav.engagement,   icon: <MessageSquare size={17} /> },
+    { page: 'analytics',    label: t.nav.analytics,    icon: <BarChart3 size={17} /> },
   ];
 
   return (

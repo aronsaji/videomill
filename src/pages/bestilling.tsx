@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
-  Zap, TrendingUp, Youtube, Hash, Instagram, Monitor,
+  TrendingUp, Youtube, Instagram, Monitor,
   CheckCircle2, AlertCircle, RefreshCw, Clock, Send,
-  Mic, Smartphone, Square
+  Mic, Smartphone, Square, Zap
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/authContext';
@@ -11,19 +11,62 @@ import StatusBadge from '../components/statusbadge';
 import type { Trend } from '../lib/types';
 
 // ─────────────────────────────────────
+// Platform-logoer — inline SVG, matche app-stilen
+// ─────────────────────────────────────
+function TikTokIcon({ size = 16, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.17 8.17 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
+    </svg>
+  );
+}
+
+// ─────────────────────────────────────
 // Statisk konfigurasjon
 // ─────────────────────────────────────
 const PLATFORMS = [
-  { id: 'tiktok',    label: 'TikTok / Shorts', icon: <Hash size={16} />,    color: 'text-pink-400',   border: 'border-pink-500/40',   bg: 'bg-pink-500/10'   },
-  { id: 'youtube',   label: 'YouTube',          icon: <Youtube size={16} />, color: 'text-red-400',    border: 'border-red-500/40',    bg: 'bg-red-500/10'    },
-  { id: 'instagram', label: 'Instagram Reels',  icon: <Instagram size={16} />, color: 'text-purple-400', border: 'border-purple-500/40', bg: 'bg-purple-500/10' },
-  { id: 'desktop',   label: 'YouTube (16:9)',   icon: <Monitor size={16} />, color: 'text-blue-400',   border: 'border-blue-500/40',   bg: 'bg-blue-500/10'   },
+  {
+    id: 'tiktok',
+    label: 'TikTok / Shorts',
+    icon: <TikTokIcon size={16} />,
+    color: 'text-pink-400',
+    border: 'border-pink-500/40',
+    bg: 'bg-pink-500/10',
+    defaultFormat: '9:16',
+  },
+  {
+    id: 'youtube',
+    label: 'YouTube',
+    icon: <Youtube size={16} />,
+    color: 'text-red-400',
+    border: 'border-red-500/40',
+    bg: 'bg-red-500/10',
+    defaultFormat: '16:9',
+  },
+  {
+    id: 'instagram',
+    label: 'Instagram Reels',
+    icon: <Instagram size={16} />,
+    color: 'text-purple-400',
+    border: 'border-purple-500/40',
+    bg: 'bg-purple-500/10',
+    defaultFormat: '9:16',
+  },
+  {
+    id: 'desktop',
+    label: 'YouTube (16:9)',
+    icon: <Monitor size={16} />,
+    color: 'text-blue-400',
+    border: 'border-blue-500/40',
+    bg: 'bg-blue-500/10',
+    defaultFormat: '16:9',
+  },
 ];
 
 const FORMATS = [
-  { id: '9:16',  label: '9:16',  sub: 'Shorts / Reels',  icon: <Smartphone size={14} /> },
-  { id: '16:9',  label: '16:9',  sub: 'YouTube / Desktop', icon: <Monitor size={14} /> },
-  { id: '1:1',   label: '1:1',   sub: 'Instagram Feed',  icon: <Square size={14} /> },
+  { id: '9:16', label: '9:16', sub: 'Shorts / Reels', icon: <Smartphone size={14} /> },
+  { id: '16:9', label: '16:9', sub: 'YouTube / Desktop', icon: <Monitor size={14} /> },
+  { id: '1:1',  label: '1:1',  sub: 'Instagram Feed', icon: <Square size={14} /> },
 ];
 
 const LANGUAGES = [
@@ -40,20 +83,54 @@ const VOICES: Record<string, { id: string; name: string; gender: string }[]> = {
     { id: 'nb-NO-Iselin',   name: 'Iselin',   gender: 'Kvinne' },
   ],
   en: [
-    { id: 'en-US-Aria',    name: 'Aria',    gender: 'Female' },
-    { id: 'en-US-Andrew',  name: 'Andrew',  gender: 'Male'   },
-    { id: 'en-GB-Sonia',   name: 'Sonia',   gender: 'Female' },
-    { id: 'en-GB-Ryan',    name: 'Ryan',    gender: 'Male'   },
+    { id: 'en-US-Aria',   name: 'Aria',   gender: 'Female' },
+    { id: 'en-US-Andrew', name: 'Andrew', gender: 'Male'   },
+    { id: 'en-GB-Sonia',  name: 'Sonia',  gender: 'Female' },
+    { id: 'en-GB-Ryan',   name: 'Ryan',   gender: 'Male'   },
   ],
   es: [
-    { id: 'es-ES-Elvira',  name: 'Elvira',  gender: 'Mujer'  },
-    { id: 'es-ES-Alvaro',  name: 'Álvaro',  gender: 'Hombre' },
+    { id: 'es-ES-Elvira', name: 'Elvira', gender: 'Mujer'  },
+    { id: 'es-ES-Alvaro', name: 'Álvaro', gender: 'Hombre' },
   ],
   de: [
-    { id: 'de-DE-Katja',   name: 'Katja',   gender: 'Frau'   },
-    { id: 'de-DE-Conrad',  name: 'Conrad',  gender: 'Mann'   },
+    { id: 'de-DE-Katja',  name: 'Katja',  gender: 'Frau' },
+    { id: 'de-DE-Conrad', name: 'Conrad', gender: 'Mann' },
   ],
 };
+
+/** Platform-logo for trend-kort — liten, stilisert */
+function PlatformLogo({ platform, active }: { platform: string; active: boolean }) {
+  const base = `transition-colors ${active ? '' : 'opacity-50'}`;
+  switch (platform) {
+    case 'tiktok':
+      return (
+        <span className={`${base} ${active ? 'text-pink-400' : 'text-white/40'}`}>
+          <TikTokIcon size={13} />
+        </span>
+      );
+    case 'youtube':
+      return <Youtube size={13} className={`${base} ${active ? 'text-red-400' : 'text-white/40'}`} />;
+    case 'instagram':
+      return <Instagram size={13} className={`${base} ${active ? 'text-purple-400' : 'text-white/40'}`} />;
+    default:
+      return <TrendingUp size={13} className={`${base} ${active ? 'text-blue-400' : 'text-white/40'}`} />;
+  }
+}
+
+/** Map n8n/DB platform-verdi til PLATFORMS id */
+function mapTrendPlatform(p: string): string {
+  if (p === 'youtube') return 'youtube';
+  if (p === 'tiktok')  return 'tiktok';
+  if (p === 'instagram') return 'instagram';
+  return 'desktop'; // google, other
+}
+
+/** Generer et ferdig prompt fra trend-data */
+function buildPrompt(trend: Trend): string {
+  const tags   = (trend.tags ?? []).slice(0, 5).join(', ');
+  const growth = trend.growth_stat ? ` Veksttall: ${trend.growth_stat}.` : '';
+  return `Lag en engasjerende video om: "${trend.title}".${growth} Fokusér på følgende nøkkelord: ${tags}. Hold innholdet kortfattet, fengende og optimalisert for ${trend.platform}.`;
+}
 
 // ─────────────────────────────────────
 // Komponent
@@ -64,13 +141,13 @@ export default function Bestilling() {
   const { data: orders } = useOrders();
 
   const [selectedTrend, setSelectedTrend] = useState<Trend | null>(null);
-  const [topic, setTopic]         = useState('');
-  const [prompt, setPrompt]       = useState('');
-  const [platform, setPlatform]   = useState('tiktok');
-  const [language, setLanguage]   = useState('nb');
-  const [voiceId, setVoiceId]     = useState('nb-NO-Pernille');
-  const [format, setFormat]       = useState('9:16');
-  const [submitting, setSubmitting] = useState(false);
+  const [topic,    setTopic]    = useState('');
+  const [prompt,   setPrompt]   = useState('');
+  const [platform, setPlatform] = useState('tiktok');
+  const [language, setLanguage] = useState('nb');
+  const [voiceId,  setVoiceId]  = useState('nb-NO-Pernille');
+  const [format,   setFormat]   = useState('9:16');
+  const [submitting,   setSubmitting]   = useState(false);
   const [submitResult, setSubmitResult] = useState<'success' | 'failed' | null>(null);
 
   // Oppdater stemme når språk endres
@@ -79,17 +156,27 @@ export default function Bestilling() {
     if (firstVoice) setVoiceId(firstVoice.id);
   }, [language]);
 
-  // Fyll inn fra valgt trend
+  // ── Auto-fill ALLE felt fra valgt trend ──
   const handleSelectTrend = (trend: Trend) => {
     setSelectedTrend(trend);
     setTopic(trend.title);
-    // trending_topics has no vinkling column — user writes prompt manually
+    setPrompt(buildPrompt(trend));
+
+    // Platform → match mot PLATFORMS-lista
+    const mappedPlatform = mapTrendPlatform(trend.platform);
+    setPlatform(mappedPlatform);
+
+    // Format → følger platform
+    const platformCfg = PLATFORMS.find(p => p.id === mappedPlatform);
+    if (platformCfg) setFormat(platformCfg.defaultFormat);
   };
 
   const clearTrend = () => {
     setSelectedTrend(null);
     setTopic('');
     setPrompt('');
+    setPlatform('tiktok');
+    setFormat('9:16');
   };
 
   const handleSubmit = async () => {
@@ -98,21 +185,19 @@ export default function Bestilling() {
     setSubmitResult(null);
 
     try {
-      // 1. Lagre bestilling i Supabase (videos-tabellen)
       const { data: order, error: insertError } = await createOrder({
         user_id:      user.id,
         topic:        topic.trim(),
         title:        topic.trim(),
-        promp:        prompt.trim(),   // DB column is "promp" (no t)
+        promp:        prompt.trim(),
         platform,
         language,
         voice_id:     voiceId,
-        aspect_ratio: format,          // DB column for video format
+        aspect_ratio: format,
       });
 
       if (insertError || !order) throw insertError ?? new Error('Insert failed');
 
-      // 2. Trigger n8n via Edge Function (same mønster som trends.tsx)
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         const n8nResp = await fetch(
@@ -124,21 +209,20 @@ export default function Bestilling() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              action:        'new_order',
-              video_id:      order.id,
-              title:         topic.trim(),
-              topic:         topic.trim(),
+              action:       'new_order',
+              video_id:     order.id,
+              title:        topic.trim(),
+              topic:        topic.trim(),
               language,
               platform,
-              trend_id:      selectedTrend?.id ?? null,
-              trend_tags:    selectedTrend?.tags ?? [],
-              promp:         prompt.trim(),
-              voice_id:      voiceId,
-              aspect_ratio:  format,
+              trend_id:     selectedTrend?.id   ?? null,
+              trend_tags:   selectedTrend?.tags  ?? [],
+              promp:        prompt.trim(),
+              voice_id:     voiceId,
+              aspect_ratio: format,
             }),
           }
         );
-        // Oppdater status i videos-tabellen basert på n8n-svar
         await supabase
           .from('videos')
           .update({ status: n8nResp.ok ? 'queued' : 'failed' })
@@ -146,7 +230,6 @@ export default function Bestilling() {
       }
 
       setSubmitResult('success');
-      // Reset skjema
       setSelectedTrend(null);
       setTopic('');
       setPrompt('');
@@ -160,8 +243,8 @@ export default function Bestilling() {
   };
 
   const availableVoices = VOICES[language] ?? [];
-  const pendingOrders = orders.filter(o => o.status === 'pending' || o.status === 'queued');
-  const recentOrders  = orders.slice(0, 8);
+  const pendingOrders   = orders.filter(o => o.status === 'pending' || o.status === 'queued');
+  const recentOrders    = orders.slice(0, 8);
 
   return (
     <div className="grid lg:grid-cols-[1fr_380px] gap-6 items-start">
@@ -176,7 +259,10 @@ export default function Bestilling() {
             <h2 className="text-sm font-semibold text-white">Trending Topics</h2>
             {trendsLoading && <RefreshCw size={12} className="text-white/30 animate-spin ml-auto" />}
             {selectedTrend && (
-              <button onClick={clearTrend} className="ml-auto text-xs text-white/35 hover:text-white/60 transition-colors">
+              <button
+                onClick={clearTrend}
+                className="ml-auto text-xs text-white/35 hover:text-white/60 transition-colors"
+              >
                 Fjern valg
               </button>
             )}
@@ -186,25 +272,59 @@ export default function Bestilling() {
             <p className="text-xs text-white/30 py-2">Ingen trender tilgjengelig — n8n henter dem automatisk</p>
           ) : (
             <div className="grid grid-cols-2 gap-2">
-              {trends.slice(0, 6).map(trend => (
-                <button
-                  key={trend.id}
-                  onClick={() => selectedTrend?.id === trend.id ? clearTrend() : handleSelectTrend(trend)}
-                  className={`text-left p-3 rounded-xl border transition-all ${
-                    selectedTrend?.id === trend.id
-                      ? 'border-teal-500/50 bg-teal-500/10'
-                      : 'border-white/6 bg-white/2 hover:border-white/15 hover:bg-white/4'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={`text-[10px] font-bold uppercase ${selectedTrend?.id === trend.id ? 'text-teal-400' : 'text-white/35'}`}>
-                      🔥 {trend.viral_score}
-                    </span>
-                    <span className="text-[10px] text-white/25">{trend.platform}</span>
-                  </div>
-                  <p className="text-xs font-semibold text-white leading-snug line-clamp-2">{trend.title}</p>
-                </button>
-              ))}
+              {trends.slice(0, 6).map(trend => {
+                const isSelected = selectedTrend?.id === trend.id;
+                return (
+                  <button
+                    key={trend.id}
+                    onClick={() => isSelected ? clearTrend() : handleSelectTrend(trend)}
+                    className={`text-left p-3 rounded-xl border transition-all ${
+                      isSelected
+                        ? 'border-teal-500/50 bg-teal-500/10'
+                        : 'border-white/6 bg-white/2 hover:border-white/15 hover:bg-white/4'
+                    }`}
+                  >
+                    {/* Header: score + platform-logo */}
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className={`text-[10px] font-bold ${isSelected ? 'text-teal-400' : 'text-white/35'}`}>
+                        🔥 {trend.viral_score}
+                      </span>
+                      <PlatformLogo platform={trend.platform} active={isSelected} />
+                    </div>
+
+                    {/* Tittel */}
+                    <p className="text-xs font-semibold text-white leading-snug line-clamp-2">
+                      {trend.title}
+                    </p>
+
+                    {/* Tags */}
+                    {(trend.tags ?? []).length > 0 && (
+                      <div className="flex gap-1 mt-1.5 flex-wrap">
+                        {(trend.tags ?? []).slice(0, 2).map(tag => (
+                          <span
+                            key={tag}
+                            className={`text-[9px] px-1.5 py-0.5 rounded-full ${
+                              isSelected
+                                ? 'bg-teal-500/15 text-teal-400/80'
+                                : 'bg-white/6 text-white/30'
+                            }`}
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Auto-fill indikator */}
+                    {isSelected && (
+                      <div className="flex items-center gap-1 mt-2">
+                        <Zap size={9} className="text-teal-400" />
+                        <span className="text-[9px] text-teal-400 font-medium">Alle felt fylt inn</span>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -239,12 +359,14 @@ export default function Bestilling() {
 
         {/* Platform */}
         <div className="bg-[#111118] border border-white/6 rounded-xl p-5 space-y-3">
-          <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">03 · Plattform</label>
+          <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">
+            03 · Plattform
+          </label>
           <div className="grid grid-cols-2 gap-2">
             {PLATFORMS.map(p => (
               <button
                 key={p.id}
-                onClick={() => setPlatform(p.id)}
+                onClick={() => { setPlatform(p.id); setFormat(p.defaultFormat); }}
                 className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all ${
                   platform === p.id
                     ? `${p.border} ${p.bg}`
@@ -252,7 +374,9 @@ export default function Bestilling() {
                 }`}
               >
                 <span className={platform === p.id ? p.color : 'text-white/30'}>{p.icon}</span>
-                <span className={`text-xs font-semibold ${platform === p.id ? 'text-white' : 'text-white/50'}`}>{p.label}</span>
+                <span className={`text-xs font-semibold ${platform === p.id ? 'text-white' : 'text-white/50'}`}>
+                  {p.label}
+                </span>
                 {platform === p.id && <CheckCircle2 size={13} className={`ml-auto ${p.color}`} />}
               </button>
             ))}
@@ -261,9 +385,10 @@ export default function Bestilling() {
 
         {/* Language + Voice */}
         <div className="bg-[#111118] border border-white/6 rounded-xl p-5 space-y-5">
-          {/* Language */}
           <div className="space-y-3">
-            <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">04 · Språk</label>
+            <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">
+              04 · Språk
+            </label>
             <div className="flex gap-2 flex-wrap">
               {LANGUAGES.map(l => (
                 <button
@@ -281,7 +406,6 @@ export default function Bestilling() {
             </div>
           </div>
 
-          {/* Voice */}
           <div className="space-y-3">
             <label className="text-xs font-semibold text-white/50 uppercase tracking-wider flex items-center gap-2">
               <Mic size={12} />
@@ -299,7 +423,9 @@ export default function Bestilling() {
                   }`}
                 >
                   <div className="text-left">
-                    <p className={`text-xs font-bold ${voiceId === v.id ? 'text-teal-400' : 'text-white/70'}`}>{v.name}</p>
+                    <p className={`text-xs font-bold ${voiceId === v.id ? 'text-teal-400' : 'text-white/70'}`}>
+                      {v.name}
+                    </p>
                     <p className="text-[10px] text-white/30 mt-0.5">{v.gender}</p>
                   </div>
                   {voiceId === v.id && <CheckCircle2 size={13} className="text-teal-400" />}
@@ -311,7 +437,9 @@ export default function Bestilling() {
 
         {/* Video Format */}
         <div className="bg-[#111118] border border-white/6 rounded-xl p-5 space-y-3">
-          <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">06 · Videoformat</label>
+          <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">
+            06 · Videoformat
+          </label>
           <div className="grid grid-cols-3 gap-3">
             {FORMATS.map(f => (
               <button
@@ -324,7 +452,9 @@ export default function Bestilling() {
                 }`}
               >
                 <span className={format === f.id ? 'text-teal-400' : 'text-white/30'}>{f.icon}</span>
-                <p className={`text-sm font-bold ${format === f.id ? 'text-teal-400' : 'text-white/60'}`}>{f.label}</p>
+                <p className={`text-sm font-bold ${format === f.id ? 'text-teal-400' : 'text-white/60'}`}>
+                  {f.label}
+                </p>
                 <p className="text-[10px] text-white/25">{f.sub}</p>
               </button>
             ))}
@@ -337,14 +467,12 @@ export default function Bestilling() {
           disabled={submitting || !topic.trim()}
           className="w-full flex items-center justify-center gap-3 py-4 bg-teal-500 hover:bg-teal-400 disabled:opacity-40 text-white font-bold text-base rounded-xl transition-all shadow-lg shadow-teal-500/25 active:scale-[0.98]"
         >
-          {submitting ? (
-            <><RefreshCw size={18} className="animate-spin" /> Sender til n8n...</>
-          ) : (
-            <><Send size={18} /> Send Bestilling</>
-          )}
+          {submitting
+            ? <><RefreshCw size={18} className="animate-spin" /> Sender til n8n...</>
+            : <><Send size={18} /> Send Bestilling</>
+          }
         </button>
 
-        {/* Feedback */}
         {submitResult && (
           <div className={`flex items-center gap-3 p-4 rounded-xl border text-sm font-medium ${
             submitResult === 'success'
@@ -362,7 +490,6 @@ export default function Bestilling() {
       {/* ── HØYRE: ORDRE-HISTORIKK ── */}
       <div className="space-y-4 lg:sticky lg:top-6">
 
-        {/* Live-indikator */}
         {pendingOrders.length > 0 && (
           <div className="bg-teal-500/8 border border-teal-500/20 rounded-xl p-4 flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse flex-shrink-0" />
@@ -394,13 +521,16 @@ export default function Bestilling() {
                     <StatusBadge status={order.status} size="sm" />
                   </div>
                   <div className="flex items-center gap-2 text-[10px] text-white/30">
+                    <PlatformLogo platform={order.platform ?? ''} active={false} />
                     <span>{PLATFORMS.find(p => p.id === order.platform)?.label ?? order.platform}</span>
                     <span>·</span>
                     <span>{LANGUAGES.find(l => l.id === order.language)?.label ?? order.language}</span>
                     <span>·</span>
                     <span>{order.aspect_ratio}</span>
                     <span className="ml-auto">
-                      {new Date(order.created_at).toLocaleString('nb-NO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      {new Date(order.created_at).toLocaleString('nb-NO', {
+                        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                      })}
                     </span>
                   </div>
                 </div>

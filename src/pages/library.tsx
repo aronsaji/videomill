@@ -13,10 +13,12 @@ export default function Library() {
 
   const videosWithStats = mockVideos.map(video => {
     const dists = mockDistributions.filter(d => d.video_id === video.id);
-    const totalViews = dists.reduce((s, d) => s + d.views, 0);
+    const totalViews = dists.reduce((s, d) => s + d.views, 0) || video.views || 0;
     const totalLikes = dists.reduce((s, d) => s + d.likes, 0);
-    const platforms = dists.map(d => d.platform);
-    return { ...video, totalViews, totalLikes, platforms };
+    const distPlatforms = dists.map(d => d.platform);
+    const thumbnail = (video.metadata as Record<string, string> | null)?.thumbnail ?? '';
+    const durationSec = video.duration_seconds ?? video.duration ?? 0;
+    return { ...video, totalViews, totalLikes, distPlatforms, thumbnail, durationSec };
   });
 
   return (
@@ -44,17 +46,19 @@ export default function Library() {
           {videosWithStats.map((video) => (
             <div key={video.id} className="bg-[#111118] border border-white/6 rounded-xl overflow-hidden hover:border-white/12 transition-all group">
               <div className="relative aspect-video bg-white/5">
-                <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover" />
+                {video.thumbnail && <img src={video.thumbnail} alt={video.title ?? ''} className="w-full h-full object-cover" />}
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <button className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors">
                     <Play size={20} className="text-white fill-white ml-1" />
                   </button>
                 </div>
-                <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white text-xs px-1.5 py-0.5 rounded font-mono">
-                  {formatDuration(video.duration)}
-                </div>
+                {video.durationSec > 0 && (
+                  <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white text-xs px-1.5 py-0.5 rounded font-mono">
+                    {formatDuration(video.durationSec)}
+                  </div>
+                )}
                 <div className="absolute top-2 left-2 flex gap-1">
-                  {video.platforms.map(p => (
+                  {video.distPlatforms.map(p => (
                     <span key={p} className="text-xs bg-black/60 backdrop-blur-sm text-white/80 px-1.5 py-0.5 rounded">{p}</span>
                   ))}
                 </div>
@@ -84,7 +88,7 @@ export default function Library() {
           {videosWithStats.map((video) => (
             <div key={video.id} className="bg-[#111118] border border-white/6 rounded-xl p-4 flex items-center gap-4 hover:border-white/10 transition-all group">
               <div className="relative w-24 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
-                <img src={video.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                {video.thumbnail && <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />}
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <Play size={14} className="text-white fill-white" />
                 </div>
@@ -92,10 +96,10 @@ export default function Library() {
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-white truncate">{video.title}</h3>
                 <div className="flex items-center gap-3 mt-1 text-xs text-white/35">
-                  <span className="flex items-center gap-1"><Clock size={10} /> {formatDuration(video.duration)}</span>
+                  {video.durationSec > 0 && <span className="flex items-center gap-1"><Clock size={10} /> {formatDuration(video.durationSec)}</span>}
                   <span className="flex items-center gap-1"><Eye size={10} /> {video.totalViews.toLocaleString('nb-NO')}</span>
                   <span className="flex items-center gap-1"><ThumbsUp size={10} /> {video.totalLikes.toLocaleString('nb-NO')}</span>
-                  {video.platforms.map(p => (
+                  {video.distPlatforms.map(p => (
                     <span key={p} className="bg-white/6 px-1.5 py-0.5 rounded text-white/50">{p}</span>
                   ))}
                 </div>

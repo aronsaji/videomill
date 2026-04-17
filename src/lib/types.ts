@@ -1,64 +1,86 @@
-export type TrendStatus = 'pending' | 'approved' | 'rejected' | 'in_production';
-export type ProductionStatus = 'queued' | 'scripting' | 'recording' | 'editing' | 'complete' | 'failed';
+export type ProductionStatus = 'pending' | 'queued' | 'scripting' | 'recording' | 'editing' | 'complete' | 'failed';
 export type DistributionStatus = 'pending' | 'uploading' | 'live' | 'failed';
 export type Sentiment = 'positive' | 'neutral' | 'negative';
 
+/** Maps to actual Supabase table: trending_topics */
 export interface Trend {
   id: string;
-  title: string;
-  topic: string;
   platform: string;
-  score: number;
-  status: TrendStatus;
-  vinkling: string;
-  tags: string[];
-  created_at: string;
-}
-
-export interface Production {
-  id: string;
-  trend_id: string | null;
   title: string;
-  status: ProductionStatus;
-  progress: number;
-  language: string;
-  audience: string;
-  error_message: string | null;
-  script: string | null;
-  created_at: string;
+  growth_stat: string | null;
+  viral_score: number;
+  tags: string[] | null;
+  heat_level: string | null;
+  active: boolean;
   updated_at: string;
 }
 
+/** Maps to actual Supabase table: videos (used for both orders and productions) */
 export interface Video {
   id: string;
-  production_id: string;
-  title: string;
-  thumbnail_url: string;
-  video_url_9x16: string;
-  video_url_16x9: string;
-  duration: number;
+  user_id: string;
+  title: string | null;
+  topic: string | null;
+  voice_id: string | null;
+  voice: string | null;
+  category: string | null;
+  video_style: string | null;
+  style_preset: string | null;
+  duration: number | null;
+  duration_seconds: number | null;
+  language: string | null;
+  platforms: string[] | null;
+  platform: string | null;
+  status: string;
+  retry_count: number;
+  views: number;
+  video_url: string | null;
+  created_at: string;
+  date: string | null;
+  metadata: Record<string, unknown> | null;
+  aspect_ratio: string | null;
+  target_audience: string | null;
+  script_instructions: string | null;
+  captions_enabled: boolean;
+  captions_style: string | null;
+  captions_color: string | null;
+  progress: number;
+  sub_status: string | null;
+  callback_url: string | null;
+  series_id: string | null;
+  /** Note: column is named "promp" (without t) in the database */
+  promp: string | null;
+}
+
+/** Production is an alias for Video — same table */
+export type Production = Video;
+
+/** Order is an alias for Video — orders are inserted as videos */
+export type Order = Video;
+
+export interface UserSocialAccount {
+  id: string;
+  user_id: string;
+  platform: string;
+  channel_id: string | null;
+  access_token: string | null;
+  refresh_token: string | null;
   created_at: string;
 }
 
-export interface Platform {
-  id: string;
-  name: string;
-  connected: boolean;
-  account_name: string;
-  account_avatar: string;
-}
-
+/** Stub type — video_distributions table does not exist in DB, kept for UI compatibility */
 export interface VideoDistribution {
   id: string;
   video_id: string;
   platform: string;
   status: DistributionStatus;
-  external_url: string;
+  external_url: string | null;
   views: number;
   likes: number;
   posted_at: string | null;
 }
 
+/** Stub type — comments table does not exist in DB, kept for UI compatibility */
 export interface Comment {
   id: string;
   video_id: string;
@@ -82,18 +104,3 @@ export interface AnalyticsSnapshot {
 }
 
 export type Page = 'dashboard' | 'trends' | 'production' | 'library' | 'distribution' | 'engagement' | 'analytics' | 'settings' | 'bestilling';
-
-export interface Order {
-  id: string;
-  user_id: string;
-  trend_id: string | null;
-  topic: string;
-  prompt: string;
-  platform: string;
-  language: string;
-  voice_id: string;
-  video_format: string;
-  status: 'pending' | 'processing' | 'complete' | 'failed';
-  n8n_response: string | null;
-  created_at: string;
-}

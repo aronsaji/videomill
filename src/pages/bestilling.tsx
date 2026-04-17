@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/authContext';
 import { useTrends, createOrder, useOrders } from '../lib/hooks/uselivedata';
 import StatusBadge from '../components/statusbadge';
-import { Trend } from '../lib/types';
+import type { Trend } from '../lib/types';
 
 // ─────────────────────────────────────
 // Statisk konfigurasjon
@@ -83,7 +83,7 @@ export default function Bestilling() {
   const handleSelectTrend = (trend: Trend) => {
     setSelectedTrend(trend);
     setTopic(trend.title);
-    setPrompt(trend.vinkling ?? '');
+    // trending_topics has no vinkling column — user writes prompt manually
   };
 
   const clearTrend = () => {
@@ -98,16 +98,16 @@ export default function Bestilling() {
     setSubmitResult(null);
 
     try {
-      // 1. Lagre bestilling i Supabase
+      // 1. Lagre bestilling i Supabase (videos-tabellen)
       const { data: order, error: insertError } = await createOrder({
-        user_id: user.id,
-        trend_id: selectedTrend?.id ?? null,
-        topic:    topic.trim(),
-        prompt:   prompt.trim(),
+        user_id:      user.id,
+        topic:        topic.trim(),
+        title:        topic.trim(),
+        promp:        prompt.trim(),   // DB column is "promp" (no t)
         platform,
         language,
-        voice_id: voiceId,
-        video_format: format,
+        voice_id:     voiceId,
+        aspect_ratio: format,          // DB column for video format
       });
 
       if (insertError || !order) throw insertError ?? new Error('Insert failed');
@@ -124,26 +124,24 @@ export default function Bestilling() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              action:       'new_order',
-              production_id: order.id,
-              title:        topic.trim(),
-              topic:        topic.trim(),
+              action:        'new_order',
+              video_id:      order.id,
+              title:         topic.trim(),
+              topic:         topic.trim(),
               language,
-              audience:     platform,
-              trend_id:     selectedTrend?.id ?? null,
-              vinkling:     prompt.trim(),
-              tags:         selectedTrend?.tags ?? [],
-              voice_id:     voiceId,
-              video_format: format,
               platform,
+              trend_id:      selectedTrend?.id ?? null,
+              trend_tags:    selectedTrend?.tags ?? [],
+              promp:         prompt.trim(),
+              voice_id:      voiceId,
+              aspect_ratio:  format,
             }),
           }
         );
-        // Lagre n8n-svar til bestillingen for audit trail
-        const n8nText = await n8nResp.text().catch(() => '');
+        // Oppdater status i videos-tabellen basert på n8n-svar
         await supabase
-          .from('orders')
-          .update({ status: n8nResp.ok ? 'processing' : 'failed', n8n_response: n8nText })
+          .from('videos')
+          .update({ status: n8nResp.ok ? 'queued' : 'failed' })
           .eq('id', order.id);
       }
 
@@ -162,8 +160,8 @@ export default function Bestilling() {
   };
 
   const availableVoices = VOICES[language] ?? [];
-  const pendingOrders   = orders.filter(o => o.status === 'pending' || o.status === 'processing');
-  const recentOrders    = orders.slice(0, 8);
+  const pendingOrders = orders.filter(o => o.status === 'pending' || o.status === 'queued');
+  const recentOrders  = orders.slice(0, 8);
 
   return (
     <div className="grid lg:grid-cols-[1fr_380px] gap-6 items-start">
@@ -200,7 +198,7 @@ export default function Bestilling() {
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className={`text-[10px] font-bold uppercase ${selectedTrend?.id === trend.id ? 'text-teal-400' : 'text-white/35'}`}>
-                      Score {trend.score}
+                      🔥 {trend.viral_score}
                     </span>
                     <span className="text-[10px] text-white/25">{trend.platform}</span>
                   </div>
@@ -391,7 +389,7 @@ export default function Bestilling() {
                 <div key={order.id} className="px-5 py-3.5 hover:bg-white/2 transition-colors">
                   <div className="flex items-start justify-between gap-2 mb-1.5">
                     <p className="text-xs font-semibold text-white leading-snug line-clamp-2 flex-1">
-                      {order.topic}
+                      {order.topic ?? order.title}
                     </p>
                     <StatusBadge status={order.status} size="sm" />
                   </div>
@@ -400,7 +398,7 @@ export default function Bestilling() {
                     <span>·</span>
                     <span>{LANGUAGES.find(l => l.id === order.language)?.label ?? order.language}</span>
                     <span>·</span>
-                    <span>{order.video_format}</span>
+                    <span>{order.aspect_ratio}</span>
                     <span className="ml-auto">
                       {new Date(order.created_at).toLocaleString('nb-NO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </span>

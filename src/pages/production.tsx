@@ -34,10 +34,8 @@ function ProductionCard({ prod }: { prod: ProductionType }) {
             </div>
             <p className="text-xs text-white/35">
               Startet {new Date(prod.created_at).toLocaleString('nb-NO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-              <span className="mx-1.5 text-white/20">·</span>
-              {prod.language.toUpperCase()}
-              <span className="mx-1.5 text-white/20">·</span>
-              {prod.audience}
+              {prod.language && <><span className="mx-1.5 text-white/20">·</span>{prod.language.toUpperCase()}</>}
+              {prod.target_audience && <><span className="mx-1.5 text-white/20">·</span>{prod.target_audience}</>}
             </p>
           </div>
 
@@ -84,10 +82,10 @@ function ProductionCard({ prod }: { prod: ProductionType }) {
           </div>
         )}
 
-        {prod.status === 'failed' && prod.error_message && (
+        {prod.status === 'failed' && (
           <div className="mt-3 flex items-start gap-2 p-3 bg-red-500/8 border border-red-500/15 rounded-lg">
             <AlertCircle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-red-300/80">{prod.error_message}</p>
+            <p className="text-xs text-red-300/80">{prod.sub_status ?? 'Produksjon feilet — sjekk n8n-logg'}</p>
           </div>
         )}
       </div>
@@ -96,16 +94,16 @@ function ProductionCard({ prod }: { prod: ProductionType }) {
         <div className="border-t border-white/5 px-5 py-4 bg-white/1.5">
           <div className="grid grid-cols-3 gap-4 text-xs">
             <div>
-              <p className="text-white/30 mb-1">Produksjons-ID</p>
-              <p className="text-white/60 font-mono">{prod.id}</p>
+              <p className="text-white/30 mb-1">Video-ID</p>
+              <p className="text-white/60 font-mono truncate">{prod.id}</p>
             </div>
             <div>
-              <p className="text-white/30 mb-1">Sist oppdatert</p>
-              <p className="text-white/60">{new Date(prod.updated_at).toLocaleString('nb-NO')}</p>
+              <p className="text-white/30 mb-1">Format</p>
+              <p className="text-white/60">{prod.aspect_ratio ?? '—'}</p>
             </div>
             <div>
-              <p className="text-white/30 mb-1">Trend-ID</p>
-              <p className="text-white/60 font-mono">{prod.trend_id ?? '—'}</p>
+              <p className="text-white/30 mb-1">Sub-status</p>
+              <p className="text-white/60 font-mono">{prod.sub_status ?? '—'}</p>
             </div>
           </div>
           {prod.status === 'failed' && (

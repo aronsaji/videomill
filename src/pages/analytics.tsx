@@ -38,9 +38,10 @@ export default function Analytics() {
 
   const videoPerformance = mockVideos.map(video => {
     const dists = mockDistributions.filter(d => d.video_id === video.id);
-    const views = dists.reduce((s, d) => s + d.views, 0);
+    const views = dists.reduce((s, d) => s + d.views, 0) || video.views || 0;
     const likes = dists.reduce((s, d) => s + d.likes, 0);
-    return { ...video, views, likes, engagement: views > 0 ? ((likes / views) * 100).toFixed(1) : '0' };
+    const thumbnail = (video.metadata as Record<string, string> | null)?.thumbnail ?? '';
+    return { ...video, views, likes, thumbnail, engagement: views > 0 ? ((likes / views) * 100).toFixed(1) : '0' };
   }).sort((a, b) => b.views - a.views);
 
   const maxVideoViews = Math.max(...videoPerformance.map(v => v.views));
@@ -98,7 +99,7 @@ export default function Analytics() {
           {videoPerformance.map((video, i) => (
             <div key={video.id} className="flex items-center gap-4">
               <span className="text-sm font-bold text-white/25 w-5 text-right flex-shrink-0">{i + 1}</span>
-              <img src={video.thumbnail_url} alt="" className="w-12 h-8 rounded-md object-cover flex-shrink-0" />
+              {video.thumbnail ? <img src={video.thumbnail} alt="" className="w-12 h-8 rounded-md object-cover flex-shrink-0" /> : <div className="w-12 h-8 rounded-md bg-white/6 flex-shrink-0" />}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-white/80 truncate mb-1">{video.title}</p>
                 <div className="h-1.5 bg-white/6 rounded-full overflow-hidden">

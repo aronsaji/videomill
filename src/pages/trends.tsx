@@ -1,53 +1,55 @@
 import { useState } from 'react';
-import { RefreshCw, Play, X, TrendingUp, Youtube, Hash } from 'lucide-react';
-import { TrendStatus } from '../lib/types';
-import { useTrends, updateTrendStatus, createProduction } from '../lib/hooks/uselivedata';
+import { RefreshCw, Play, TrendingUp, Youtube, Hash, Flame } from 'lucide-react';
+import { useTrends, createProduction } from '../lib/hooks/uselivedata';
 import { useAuth } from '../contexts/authContext';
 import { useLanguage } from '../contexts/languageContext';
 import { supabase } from '../lib/supabaseClient';
-import StatusBadge from '../components/statusbadge';
+import type { Trend } from '../lib/types';
 
 const platformIcon: Record<string, React.ReactNode> = {
-  youtube: <Youtube size={13} />,
-  tiktok: <Hash size={13} />,
-  google: <TrendingUp size={13} />,
+  youtube:   <Youtube size={13} />,
+  tiktok:    <Hash size={13} />,
+  google:    <TrendingUp size={13} />,
+  instagram: <Hash size={13} />,
 };
 
 const platformColors: Record<string, string> = {
-  youtube: 'text-red-400 bg-red-500/10',
-  tiktok: 'text-pink-400 bg-pink-500/10',
-  google: 'text-blue-400 bg-blue-500/10',
+  youtube:   'text-red-400 bg-red-500/10',
+  tiktok:    'text-pink-400 bg-pink-500/10',
+  google:    'text-blue-400 bg-blue-500/10',
+  instagram: 'text-purple-400 bg-purple-500/10',
+};
+
+const heatColors: Record<string, string> = {
+  high:   'text-orange-400 bg-orange-500/10 border-orange-500/20',
+  medium: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
+  low:    'text-white/40  bg-white/5        border-white/10',
 };
 
 export default function Trends() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { data: trends, loading } = useTrends();
-  const [filter, setFilter] = useState<TrendStatus | 'all'>('all');
+  const [filter, setFilter] = useState<string>('all');
   const [scanning, setScanning] = useState(false);
   const [initiating, setInitiating] = useState<string | null>(null);
 
-  const filtered = filter === 'all' ? trends : trends.filter(tr => tr.status === filter);
+  // Filter by platform
+  const platforms = ['all', ...Array.from(new Set(trends.map(tr => tr.platform)))];
+  const filtered = filter === 'all' ? trends : trends.filter(tr => tr.platform === filter);
 
-  const handleApprove = async (id: string) => {
-    await updateTrendStatus(id, 'approved');
-  };
-
-  const handleReject = async (id: string) => {
-    await updateTrendStatus(id, 'rejected');
-  };
-
-  const handleInitProduction = async (trend: typeof trends[0]) => {
+  const handleInitProduction = async (trend: Trend) => {
     if (!user) return;
     setInitiating(trend.id);
-    await updateTrendStatus(trend.id, 'in_production');
+
     const { data: prod } = await createProduction({
-      title: trend.title,
-      trend_id: trend.id,
-      language: 'nb',
-      audience: trend.tags.join(', '),
-      user_id: user.id,
+      title:            trend.title,
+      language:         'nb',
+      user_id:          user.id,
+      target_audience:  (trend.tags ?? []).join(', '),
+      topic:            trend.title,
     });
+
     if (prod) {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -58,15 +60,15 @@ export default function Trends() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            action: 'init_production',
-            production_id: prod.id,
-            title: trend.title,
-            topic: trend.topic,
-            language: 'nb',
-            audience: trend.tags.join(', '),
-            trend_id: trend.id,
-            vinkling: trend.vinkling,
-            tags: trend.tags,
+            action:       'init_production',
+            video_id:     prod.id,
+            title:        trend.title,
+            topic:        trend.title,
+            language:     'nb',
+            trend_id:     trend.id,
+            trend_tags:   trend.tags ?? [],
+            viral_score:  trend.viral_score,
+            heat_level:   trend.heat_level,
           }),
         });
       }
@@ -79,39 +81,29 @@ export default function Trends() {
     setTimeout(() => setScanning(false), 2500);
   };
 
-  const counts = {
-    all: trends.length,
-    pending: trends.filter(t => t.status === 'pending').length,
-    approved: trends.filter(t => t.status === 'approved').length,
-    in_production: trends.filter(t => t.status === 'in_production').length,
-    rejected: trends.filter(t => t.status === 'rejected').length,
-  };
-
-  const filterOptions = [
-    { key: 'all' as const, label: t.trends.all },
-    { key: 'pending' as const, label: t.trends.pending },
-    { key: 'approved' as const, label: t.trends.approved },
-    { key: 'in_production' as const, label: t.trends.inProduction },
-    { key: 'rejected' as const, label: t.trends.rejected },
-  ];
-
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1 bg-white/4 p-1 rounded-xl border border-white/6">
-          {filterOptions.map(({ key, label }) => (
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex gap-1 bg-white/4 p-1 rounded-xl border border-white/6 flex-wrap">
+          {platforms.map(key => (
             <button
               key={key}
               onClick={() => setFilter(key)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                filter === key ? 'bg-teal-500/20 text-teal-400 border border-teal-500/25' : 'text-white/40 hover:text-white/70'
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
+                filter === key
+                  ? 'bg-teal-500/20 text-teal-400 border border-teal-500/25'
+                  : 'text-white/40 hover:text-white/70'
               }`}
             >
-              {label}
-              <span className="ml-1.5 text-white/25">{counts[key]}</span>
+              {key === 'all' ? t.trends.all : key}
+              <span className="ml-1.5 text-white/25">
+                {key === 'all' ? trends.length : trends.filter(tr => tr.platform === key).length}
+              </span>
             </button>
           ))}
         </div>
+
         <button
           onClick={handleScan}
           disabled={scanning}
@@ -122,6 +114,7 @@ export default function Trends() {
         </button>
       </div>
 
+      {/* Scanning banner */}
       {scanning && (
         <div className="bg-teal-500/8 border border-teal-500/20 rounded-xl p-4 flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
@@ -129,6 +122,7 @@ export default function Trends() {
         </div>
       )}
 
+      {/* List */}
       {loading ? (
         <div className="flex items-center justify-center h-32 text-white/30 text-sm">{t.common.loading}</div>
       ) : filtered.length === 0 ? (
@@ -139,71 +133,74 @@ export default function Trends() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((trend) => (
+          {filtered.map(trend => (
             <div key={trend.id} className="bg-[#111118] border border-white/6 rounded-xl p-5 hover:border-white/10 transition-all group">
               <div className="flex items-start gap-4">
+
+                {/* Score badge */}
                 <div className="flex-shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500/20 to-cyan-500/10 border border-teal-500/20">
-                  <span className="text-lg font-bold text-teal-400 leading-none">{trend.score}</span>
-                  <span className="text-xs text-teal-400/60 leading-none mt-0.5">{t.trends.score}</span>
+                  <span className="text-lg font-bold text-teal-400 leading-none">{trend.viral_score}</span>
+                  <span className="text-[10px] text-teal-400/60 leading-none mt-0.5">{t.trends.score}</span>
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-4">
-                    <div>
+                    <div className="min-w-0">
                       <h3 className="text-sm font-semibold text-white leading-snug mb-1">{trend.title}</h3>
-                      <p className="text-xs text-white/45 leading-relaxed mb-2">{trend.vinkling}</p>
+
+                      {/* Growth stat */}
+                      {trend.growth_stat && (
+                        <p className="text-xs text-teal-400/70 leading-relaxed mb-2">
+                          📈 {trend.growth_stat}
+                        </p>
+                      )}
+
+                      {/* Tags row */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${platformColors[trend.platform] ?? 'text-white/40 bg-white/5'}`}>
                           {platformIcon[trend.platform]}
                           {trend.platform}
                         </span>
-                        {(trend.tags ?? []).slice(0, 2).map((tag: string) => (
-                          <span key={tag} className="text-xs bg-white/6 text-white/45 px-2 py-0.5 rounded-full">#{tag}</span>
+
+                        {trend.heat_level && (
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${heatColors[trend.heat_level] ?? heatColors.low}`}>
+                            <Flame size={10} />
+                            {trend.heat_level}
+                          </span>
+                        )}
+
+                        {(trend.tags ?? []).slice(0, 3).map((tag: string) => (
+                          <span key={tag} className="text-xs bg-white/6 text-white/45 px-2 py-0.5 rounded-full">
+                            #{tag}
+                          </span>
                         ))}
-                        <StatusBadge status={trend.status} />
                       </div>
                     </div>
 
-                    <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {trend.status === 'pending' && (
-                        <>
-                          <button
-                            onClick={() => handleReject(trend.id)}
-                            className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center hover:bg-red-500/20 transition-colors"
-                          >
-                            <X size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleApprove(trend.id)}
-                            className="px-3 py-1.5 bg-white/8 border border-white/12 text-white/70 text-xs font-medium rounded-lg hover:bg-white/12 transition-colors"
-                          >
-                            {t.trends.approve}
-                          </button>
-                        </>
-                      )}
-                      {(trend.status === 'pending' || trend.status === 'approved') && (
-                        <button
-                          onClick={() => handleInitProduction(trend)}
-                          disabled={initiating === trend.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500 text-white text-xs font-semibold rounded-lg hover:bg-teal-400 disabled:opacity-60 transition-colors shadow-md shadow-teal-500/20"
-                        >
-                          {initiating === trend.id ? (
-                            <RefreshCw size={12} className="animate-spin" />
-                          ) : (
-                            <Play size={12} fill="white" />
-                          )}
-                          {t.trends.initProduction}
-                        </button>
-                      )}
+                    {/* Action button */}
+                    <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleInitProduction(trend)}
+                        disabled={initiating === trend.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500 text-white text-xs font-semibold rounded-lg hover:bg-teal-400 disabled:opacity-60 transition-colors shadow-md shadow-teal-500/20"
+                      >
+                        {initiating === trend.id ? (
+                          <RefreshCw size={12} className="animate-spin" />
+                        ) : (
+                          <Play size={12} fill="white" />
+                        )}
+                        {t.trends.initProduction}
+                      </button>
                     </div>
                   </div>
                 </div>
               </div>
 
+              {/* Viral score bar */}
               <div className="mt-3 ml-16 h-1 bg-white/4 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-teal-500 to-cyan-400 rounded-full"
-                  style={{ width: `${trend.score}%` }}
+                  style={{ width: `${Math.min(trend.viral_score, 100)}%` }}
                 />
               </div>
             </div>

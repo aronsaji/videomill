@@ -1,40 +1,59 @@
-import { Share2, ExternalLink, Eye, ThumbsUp, Youtube, Hash, Instagram, Facebook, Twitter } from 'lucide-react';
-import { useDistributions, useVideos } from '../lib/hooks/uselivedata';
-import { useLanguage } from '../contexts/languageContext';
+import { Share2, Eye, TrendingUp, Youtube, Instagram, Monitor, RefreshCw, ExternalLink, Users } from 'lucide-react';
+import { useVideos } from '../lib/hooks/uselivedata';
 import StatusBadge from '../components/statusbadge';
 
+function TikTokIcon({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.17 8.17 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
+    </svg>
+  );
+}
+
 const platformIcon: Record<string, React.ReactNode> = {
-  YouTube:   <Youtube size={13} className="text-red-400" />,
-  TikTok:    <Hash size={13} className="text-pink-400" />,
-  Instagram: <Instagram size={13} className="text-purple-400" />,
-  Facebook:  <Facebook size={13} className="text-blue-400" />,
-  Twitter:   <Twitter size={13} className="text-sky-400" />,
+  youtube:   <Youtube size={13} className="text-red-400" />,
+  tiktok:    <TikTokIcon size={13} />,
+  instagram: <Instagram size={13} className="text-purple-400" />,
+  desktop:   <Monitor size={13} className="text-blue-400" />,
 };
 
+const STATUS_ORDER = ['pending','queued','scripting','recording','editing','complete','failed'];
+
+function statusColor(status: string): string {
+  switch(status) {
+    case 'complete': return 'bg-teal-500/10 border-teal-500/20';
+    case 'failed':   return 'bg-red-500/10 border-red-500/20';
+    case 'scripting':
+    case 'recording':
+    case 'editing':  return 'bg-blue-500/10 border-blue-500/20';
+    case 'queued':   return 'bg-yellow-500/10 border-yellow-500/20';
+    default:         return 'bg-white/5 border-white/8';
+  }
+}
+
 export default function Distribution() {
-  const { t } = useLanguage();
-  const { data: distributions, loading: loadingDist } = useDistributions();
-  const { data: videos, loading: loadingVid } = useVideos();
+  const { data: videos, loading, refresh } = useVideos();
 
-  const loading = loadingDist || loadingVid;
+  const totalViews     = videos.reduce((s, v) => s + (v.views ?? 0), 0);
+  const completeCount  = videos.filter(v => v.status === 'complete').length;
+  const activeCount    = videos.filter(v => ['queued','scripting','recording','editing'].includes(v.status)).length;
 
-  const enriched = distributions.map(d => ({
-    ...d,
-    videoTitle: videos.find(v => v.id === d.video_id)?.title ?? '—',
-  }));
-
-  const totalViews = distributions.reduce((s, d) => s + d.views, 0);
-  const totalLikes = distributions.reduce((s, d) => s + d.likes, 0);
-  const liveCount  = distributions.filter(d => d.status === 'live').length;
+  // Sort: active first, then by status order, then date
+  const sorted = [...videos].sort((a, b) => {
+    const ai = STATUS_ORDER.indexOf(a.status);
+    const bi = STATUS_ORDER.indexOf(b.status);
+    if (ai !== bi) return ai - bi;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   return (
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Totale visninger', value: totalViews.toLocaleString('nb-NO'), icon: <Eye size={15} className="text-teal-400" /> },
-          { label: 'Totale likes',     value: totalLikes.toLocaleString('nb-NO'), icon: <ThumbsUp size={15} className="text-blue-400" /> },
-          { label: 'Live-publikasjoner', value: String(liveCount),               icon: <Share2 size={15} className="text-purple-400" /> },
+          { label: 'Totale visninger',    value: totalViews.toLocaleString('nb-NO'),  icon: <Eye size={15} className="text-teal-400" />   },
+          { label: 'Fullførte videoer',   value: String(completeCount),               icon: <TrendingUp size={15} className="text-blue-400" /> },
+          { label: 'Under produksjon',    value: String(activeCount),                 icon: <Share2 size={15} className="text-purple-400" /> },
         ].map(({ label, value, icon }) => (
           <div key={label} className="bg-[#111118] border border-white/6 rounded-xl p-4 flex items-center gap-4">
             <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">{icon}</div>
@@ -46,66 +65,130 @@ export default function Distribution() {
         ))}
       </div>
 
-      {/* Table */}
+      {/* Refresh + header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-white">Produksjonsstatus</h2>
+          <p className="text-xs text-white/30 mt-0.5">Live-oppdatering via Supabase Realtime</p>
+        </div>
+        <button
+          onClick={() => refresh()}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-white/40 text-xs rounded-lg hover:bg-white/8 hover:text-white/60 transition-colors"
+        >
+          <RefreshCw size={12} />
+          Oppdater
+        </button>
+      </div>
+
+      {/* Table / list */}
       {loading ? (
-        <div className="flex items-center justify-center h-32 text-white/30 text-sm">{t.common.loading}</div>
-      ) : enriched.length === 0 ? (
+        <div className="flex items-center justify-center h-32 text-white/30 text-sm gap-2">
+          <RefreshCw size={16} className="animate-spin" /> Laster...
+        </div>
+      ) : sorted.length === 0 ? (
         <div className="text-center py-20">
           <Share2 size={32} className="text-white/15 mx-auto mb-3" />
-          <p className="text-white/30 text-sm">Ingen distribusjoner ennå</p>
+          <p className="text-white/30 text-sm">Ingen bestillinger ennå</p>
+          <p className="text-white/20 text-xs mt-1">Bestill en video for å starte produksjon</p>
         </div>
       ) : (
-        <div className="bg-[#111118] border border-white/6 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/5">
-                <th className="text-left px-5 py-3 text-xs font-semibold text-white/35 uppercase tracking-wider">Video</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-white/35 uppercase tracking-wider">Plattform</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-white/35 uppercase tracking-wider">Status</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-white/35 uppercase tracking-wider">Visninger</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-white/35 uppercase tracking-wider">Likes</th>
-                <th className="text-right px-5 py-3 text-xs font-semibold text-white/35 uppercase tracking-wider">Publisert</th>
-              </tr>
-            </thead>
-            <tbody>
-              {enriched.map((d) => (
-                <tr key={d.id} className="border-b border-white/4 last:border-b-0 hover:bg-white/2 transition-colors">
-                  <td className="px-5 py-3.5">
-                    <p className="text-white/80 font-medium truncate max-w-[260px]">{d.videoTitle}</p>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <span className="flex items-center gap-1.5 text-white/55">
-                      {platformIcon[d.platform] ?? <Share2 size={13} />}
-                      {d.platform}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <StatusBadge status={d.status} />
-                  </td>
-                  <td className="px-4 py-3.5 text-right text-white/55 font-mono text-xs">
-                    {d.views.toLocaleString('nb-NO')}
-                  </td>
-                  <td className="px-4 py-3.5 text-right text-white/55 font-mono text-xs">
-                    {d.likes.toLocaleString('nb-NO')}
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    {d.posted_at ? (
-                      <span className="text-white/35 text-xs">
-                        {new Date(d.posted_at).toLocaleDateString('nb-NO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    ) : (
-                      <span className="text-white/20 text-xs">—</span>
+        <div className="space-y-2">
+          {sorted.map((video) => {
+            const videoUrl = video.video_url
+              ?? (video.metadata as Record<string, string> | null)?.video_url_16x9
+              ?? null;
+            const isActive = ['queued','scripting','recording','editing'].includes(video.status);
+
+            return (
+              <div
+                key={video.id}
+                className={`bg-[#111118] border rounded-xl p-4 transition-all hover:border-white/10 ${statusColor(video.status)}`}
+              >
+                <div className="flex items-start gap-4">
+                  {/* Platform icon */}
+                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    {platformIcon[video.platform?.toLowerCase() ?? ''] ?? <Monitor size={13} className="text-white/30" />}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    {/* Title + status */}
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <p className="text-sm font-semibold text-white truncate flex-1">
+                        {video.title ?? video.topic ?? '—'}
+                      </p>
+                      <StatusBadge status={video.status} />
+                    </div>
+
+                    {/* Progress bar */}
+                    {isActive && (
+                      <div className="mb-2">
+                        <div className="flex items-center justify-between text-[10px] text-white/30 mb-1">
+                          <span>{video.sub_status ?? 'Behandler...'}</span>
+                          <span>{video.progress ?? 0}%</span>
+                        </div>
+                        <div className="h-1 bg-white/6 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-teal-500 to-cyan-400 rounded-full transition-all duration-700"
+                            style={{ width: `${video.progress ?? 0}%` }}
+                          />
+                        </div>
+                      </div>
                     )}
-                    {d.external_url && d.external_url !== '#' && (
-                      <a href={d.external_url} target="_blank" rel="noopener noreferrer" className="ml-2 inline-flex text-white/30 hover:text-teal-400 transition-colors">
-                        <ExternalLink size={12} />
+
+                    {/* Meta info row */}
+                    <div className="flex items-center gap-2 text-[11px] text-white/30 flex-wrap">
+                      {video.platform && (
+                        <span className="capitalize">{video.platform}</span>
+                      )}
+                      {video.platform && <span>·</span>}
+                      {video.language && (
+                        <span className="uppercase">{video.language}</span>
+                      )}
+                      {video.language && <span>·</span>}
+                      {video.aspect_ratio && (
+                        <span>{video.aspect_ratio}</span>
+                      )}
+                      {video.target_audience && (
+                        <>
+                          <span>·</span>
+                          <span className="flex items-center gap-0.5">
+                            <Users size={9} />
+                            {video.target_audience}
+                          </span>
+                        </>
+                      )}
+                      {video.views > 0 && (
+                        <>
+                          <span>·</span>
+                          <span className="flex items-center gap-0.5"><Eye size={9} />{video.views.toLocaleString('nb-NO')}</span>
+                        </>
+                      )}
+                      <span className="ml-auto">
+                        {new Date(video.created_at).toLocaleString('nb-NO', {
+                          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {videoUrl && (
+                      <a
+                        href={videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-medium rounded-lg hover:bg-teal-500/20 transition-colors"
+                      >
+                        <ExternalLink size={11} />
+                        Se video
                       </a>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

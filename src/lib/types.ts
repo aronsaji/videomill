@@ -5,14 +5,20 @@ export type Sentiment = 'positive' | 'neutral' | 'negative';
 /** Maps to actual Supabase table: trending_topics */
 export interface Trend {
   id: string;
-  platform: string;
+  platform: string | null;
   title: string;
   growth_stat: string | null;
+  /** Was stored as 'rank' by old n8n; now correctly mapped to viral_score */
   viral_score: number;
   tags: string[] | null;
   heat_level: string | null;
+  /** Target audience / who the content is for */
+  target_audience: string | null;
+  /** Category from Ollama (tech, motivation, history, …) */
+  category: string | null;
   active: boolean;
   updated_at: string;
+  created_at?: string;
 }
 
 /** Maps to actual Supabase table: videos (used for both orders and productions) */
@@ -35,9 +41,10 @@ export interface Video {
   retry_count: number;
   views: number;
   video_url: string | null;
+  /** Multi-format video URLs stored in metadata */
+  metadata: Record<string, unknown> | null;
   created_at: string;
   date: string | null;
-  metadata: Record<string, unknown> | null;
   aspect_ratio: string | null;
   target_audience: string | null;
   script_instructions: string | null;

@@ -15,16 +15,19 @@ function useRealtimeTable<T extends { id: string }>(
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const result = await query();
-    setData(result);
-    setLoading(false);
-  }, []);
+    setLoading(true);
+    try {
+      const result = await query();
+      setData(result);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    refresh().catch(err => {
-      setError(err.message);
-      setLoading(false);
-    });
+    refresh();
 
     const channel = supabase
       .channel(`${table}_changes_${Date.now()}`)
@@ -42,7 +45,7 @@ function useRealtimeTable<T extends { id: string }>(
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [table]);
+  }, [table]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { data, loading, error, refresh };
 }
@@ -79,13 +82,12 @@ export function useVideos() {
 /** Alias: productions are stored in the videos table */
 export const useProductions = useVideos;
 
-/** Orders: videos with status = pending | processing | queued */
+/** Orders: all videos for this user */
 export function useOrders() {
   return useRealtimeTable<Video>('videos', async () => {
     const { data, error } = await supabase
       .from('videos')
       .select('*')
-      .in('status', ['pending', 'queued', 'scripting', 'recording', 'editing', 'complete', 'failed'])
       .order('created_at', { ascending: false })
       .limit(50);
     if (error) throw error;
@@ -127,26 +129,28 @@ export function useComments() {
 export async function createOrder(order: {
   user_id: string;
   topic: string;
-  promp: string;           // DB column is "promp", not "prompt"
+  promp: string;
   platform: string;
   language: string;
   voice_id: string;
-  aspect_ratio: string;    // DB column for video format
+  aspect_ratio: string;
   title?: string;
+  target_audience?: string;
 }) {
   return supabase
     .from('videos')
     .insert({
-      user_id:     order.user_id,
-      topic:       order.topic,
-      title:       order.title ?? order.topic,
-      promp:       order.promp,
-      platform:    order.platform,
-      language:    order.language,
-      voice_id:    order.voice_id,
-      aspect_ratio: order.aspect_ratio,
-      status:      'pending',
-      progress:    0,
+      user_id:          order.user_id,
+      topic:            order.topic,
+      title:            order.title ?? order.topic,
+      promp:            order.promp,
+      platform:         order.platform,
+      language:         order.language,
+      voice_id:         order.voice_id,
+      aspect_ratio:     order.aspect_ratio,
+      target_audience:  order.target_audience ?? null,
+      status:           'pending',
+      progress:         0,
     })
     .select()
     .single();
@@ -161,12 +165,30 @@ export async function createProduction(data: {
   user_id: string;
   target_audience?: string;
   topic?: string;
+  promp?: string;
+  platform?: string;
+  voice_id?: string;
+  aspect_ratio?: string;
 }) {
   return supabase
     .from('videos')
-    .insert({ ...data, status: 'queued', progress: 0 })
+    .insert({
+      ...data,
+      status:   'queued',
+      progress: 0,
+    })
     .select()
     .single();
+}
+
+/**
+ * Update video status (used for retry / manual status changes).
+ */
+export async function updateVideoStatus(id: string, status: string, progress?: number) {
+  return supabase
+    .from('videos')
+    .update({ status, ...(progress !== undefined ? { progress } : {}) })
+    .eq('id', id);
 }
 
 /**

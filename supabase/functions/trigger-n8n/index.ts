@@ -12,15 +12,11 @@ import { createClient } from "npm:@supabase/supabase-js@2";
  *  - Localhost-URLer er kun tillatt i development-modus
  */
 
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "";
-const ENVIRONMENT    = Deno.env.get("ENVIRONMENT") ?? "production";
-
+// CORS: tillat alle origins — sikkerhet håndteres utelukkende av JWT-verifisering
+// (ALLOWED_ORIGIN beholdes som env-var for fremtidig bruk, men blokkerer ikke lenger)
 function buildCorsHeaders(requestOrigin: string | null): Record<string, string> {
-  // I dev: tillat alle origins slik at lokal Vite-dev-server fungerer
-  const isProduction = ENVIRONMENT === "production";
-  const isAllowed = !isProduction || (ALLOWED_ORIGIN && requestOrigin === ALLOWED_ORIGIN);
   return {
-    "Access-Control-Allow-Origin":  isAllowed ? (requestOrigin ?? ALLOWED_ORIGIN) : "",
+    "Access-Control-Allow-Origin":  requestOrigin ?? "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
     "Vary": "Origin",

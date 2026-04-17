@@ -61,7 +61,16 @@ export function useTrends() {
       .eq('active', true)
       .order('viral_score', { ascending: false });
     if (error) throw error;
-    return (data ?? []) as Trend[];
+    // Map old n8n column names → new names when new ones are null
+    // Old pipeline used: rank, heat, reason
+    // New pipeline uses: viral_score, heat_level, growth_stat
+    const mapped = (data ?? []).map((row: Record<string, unknown>) => ({
+      ...row,
+      viral_score: (row.viral_score as number) ?? (row.rank as number) ?? 0,
+      heat_level:  (row.heat_level  as string) ?? (row.heat  as string) ?? null,
+      growth_stat: (row.growth_stat as string) ?? (row.reason as string) ?? null,
+    }));
+    return mapped as Trend[];
   });
 }
 

@@ -201,14 +201,31 @@ export default function Settings() {
             <Toggle value={settings.n8n_enabled} onChange={v => setSettings(s => ({ ...s, n8n_enabled: v }))} />
           </div>
 
-          <button
-            onClick={handleTestWebhook}
-            disabled={!settings.n8n_webhook_url || testing}
-            className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 text-white/60 text-sm rounded-xl hover:bg-white/8 disabled:opacity-40 transition-all"
-          >
-            <TestTube size={14} />
-            {testing ? t.settings.testing : t.settings.testWebhook}
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-5 py-2 bg-teal-500 hover:bg-teal-400 disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-teal-500/20"
+            >
+              <Save size={14} />
+              {saving ? t.common.saving : t.common.save}
+            </button>
+
+            <button
+              onClick={handleTestWebhook}
+              disabled={!settings.n8n_webhook_url || testing}
+              className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 text-white/60 text-sm rounded-xl hover:bg-white/8 disabled:opacity-40 transition-all"
+            >
+              <TestTube size={14} />
+              {testing ? t.settings.testing : t.settings.testWebhook}
+            </button>
+
+            {saveMsg && (
+              <span className="flex items-center gap-1.5 text-sm text-teal-400">
+                <CheckCircle2 size={13} /> {saveMsg}
+              </span>
+            )}
+          </div>
 
           {testResult && (
             <div className={`flex items-start gap-2 p-3 rounded-xl border text-sm ${testResult === 'success' ? 'bg-teal-500/10 border-teal-500/20 text-teal-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>

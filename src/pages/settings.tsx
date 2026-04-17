@@ -29,6 +29,7 @@ export default function Settings() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'failed' | null>(null);
   const [testMessage, setTestMessage] = useState('');
+  const [webhookVerified, setWebhookVerified] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -81,11 +82,14 @@ export default function Settings() {
         }
       );
       const result = await resp.json();
-      setTestResult(result.success ? 'success' : 'failed');
-      setTestMessage(result.message ?? '');
+      const ok = result.success === true;
+      setTestResult(ok ? 'success' : 'failed');
+      setTestMessage(result.message ?? result.error ?? '');
+      if (ok) setWebhookVerified(true);
     } catch (err) {
       setTestResult('failed');
       setTestMessage(err instanceof Error ? err.message : 'Ukjent feil');
+      setWebhookVerified(false);
     }
     setTesting(false);
     setTimeout(() => { setTestResult(null); setTestMessage(''); }, 8000);
@@ -113,10 +117,15 @@ export default function Settings() {
             <p className="text-xs text-white/35 mt-0.5">{t.settings.n8nDescription}</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            {settings.n8n_enabled && settings.n8n_webhook_url ? (
+            {webhookVerified && settings.n8n_enabled ? (
               <div className="flex items-center gap-1.5 text-xs text-teal-400">
                 <CheckCircle2 size={13} />
                 {t.settings.connected}
+              </div>
+            ) : settings.n8n_webhook_url && settings.n8n_enabled ? (
+              <div className="flex items-center gap-1.5 text-xs text-amber-400">
+                <AlertTriangle size={13} />
+                Ikke testet
               </div>
             ) : (
               <div className="flex items-center gap-1.5 text-xs text-white/30">

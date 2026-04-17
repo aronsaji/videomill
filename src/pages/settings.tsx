@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Zap, Globe, Bell, CheckCircle2, XCircle, TestTube, Save, ToggleLeft, ToggleRight, Youtube, Link2, AlertTriangle } from 'lucide-react';
+import { Zap, Globe, Bell, CheckCircle2, XCircle, TestTube, Save, ToggleLeft, ToggleRight, Youtube, Link2, AlertTriangle, Info } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/authContext';
 import { useLanguage } from '../contexts/languageContext';
@@ -28,6 +28,7 @@ export default function Settings() {
   const [saveMsg, setSaveMsg] = useState('');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'failed' | null>(null);
+  const [testMessage, setTestMessage] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -59,10 +60,13 @@ export default function Settings() {
     }
   };
 
+  const isLocalhost = settings.n8n_webhook_url.includes('localhost') || settings.n8n_webhook_url.includes('127.0.0.1');
+
   const handleTestWebhook = async () => {
     if (!settings.n8n_webhook_url) return;
     setTesting(true);
     setTestResult(null);
+    setTestMessage('');
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const resp = await fetch(
@@ -73,16 +77,18 @@ export default function Settings() {
             Authorization: `Bearer ${session?.access_token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ action: 'test', title: 'VideoMill Test', language: 'nb', audience: 'test' }),
+          body: JSON.stringify({ action: 'test', title: 'VideoMill Test', language: 'nb' }),
         }
       );
       const result = await resp.json();
       setTestResult(result.success ? 'success' : 'failed');
-    } catch {
+      setTestMessage(result.message ?? '');
+    } catch (err) {
       setTestResult('failed');
+      setTestMessage(err instanceof Error ? err.message : 'Ukjent feil');
     }
     setTesting(false);
-    setTimeout(() => setTestResult(null), 4000);
+    setTimeout(() => { setTestResult(null); setTestMessage(''); }, 8000);
   };
 
   const Toggle = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
@@ -132,6 +138,50 @@ export default function Settings() {
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-teal-500/50 focus:bg-white/8 transition-all font-mono"
             />
             <p className="text-xs text-white/30 mt-1.5">{t.settings.webhookHelp}</p>
+
+            {/* Advarsel: localhost er ikke tilgjengelig fra Supabase-skyen */}
+            {isLocalhost && (
+              <div className="mt-3 flex items-start gap-3 p-4 bg-amber-500/8 border border-amber-500/25 rounded-xl">
+                <AlertTriangle size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-amber-400">localhost fungerer ikke i produksjon</p>
+                  <p className="text-xs text-white/50 leading-relaxed">
+                    Supabase Edge Functions kjører i skyen og kan ikke nå din lokale maskin.
+                    Du har to alternativer:
+                  </p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-start gap-2">
+                      <span className="text-[10px] font-bold text-teal-400 mt-0.5 flex-shrink-0">ALT 1</span>
+                      <p className="text-xs text-white/60">
+                        <span className="font-semibold text-white/80">n8n Cloud</span> — Opprett gratis på{' '}
+                        <a href="https://app.n8n.cloud" target="_blank" rel="noopener noreferrer" className="text-teal-400 underline hover:text-teal-300">
+                          app.n8n.cloud
+                        </a>
+                        {' '}og bruk URL-en derfra (f.eks.{' '}
+                        <code className="bg-white/8 px-1 rounded text-[10px]">https://xyz.app.n8n.cloud/webhook/…</code>)
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-[10px] font-bold text-teal-400 mt-0.5 flex-shrink-0">ALT 2</span>
+                      <p className="text-xs text-white/60">
+                        <span className="font-semibold text-white/80">ngrok tunnel</span> — Kjør{' '}
+                        <code className="bg-white/8 px-1 rounded text-[10px]">ngrok http 5678</code>
+                        {' '}i terminalen og bruk den HTTPS-URLen du får (f.eks.{' '}
+                        <code className="bg-white/8 px-1 rounded text-[10px]">https://abc123.ngrok.io/webhook/…</code>)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Info: hva som er forventet URL-format */}
+            {!isLocalhost && settings.n8n_webhook_url && !settings.n8n_webhook_url.startsWith('https://') && (
+              <div className="mt-3 flex items-center gap-2 p-3 bg-red-500/8 border border-red-500/20 rounded-xl">
+                <XCircle size={13} className="text-red-400 flex-shrink-0" />
+                <p className="text-xs text-red-300">URL må starte med <code className="bg-white/8 px-1 rounded">https://</code></p>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between py-3 border-t border-white/5">
@@ -152,9 +202,12 @@ export default function Settings() {
           </button>
 
           {testResult && (
-            <div className={`flex items-center gap-2 p-3 rounded-xl border text-sm ${testResult === 'success' ? 'bg-teal-500/10 border-teal-500/20 text-teal-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-              {testResult === 'success' ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-              {testResult === 'success' ? t.settings.testSuccess : t.settings.testFailed}
+            <div className={`flex items-start gap-2 p-3 rounded-xl border text-sm ${testResult === 'success' ? 'bg-teal-500/10 border-teal-500/20 text-teal-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+              {testResult === 'success' ? <CheckCircle2 size={14} className="flex-shrink-0 mt-0.5" /> : <XCircle size={14} className="flex-shrink-0 mt-0.5" />}
+              <div>
+                <p className="font-medium">{testResult === 'success' ? t.settings.testSuccess : t.settings.testFailed}</p>
+                {testMessage && <p className="text-xs mt-0.5 opacity-80">{testMessage}</p>}
+              </div>
             </div>
           )}
         </div>

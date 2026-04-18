@@ -55,7 +55,6 @@ export default function Library() {
       </div>
     )}
     <div className="space-y-5">
-    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <p className="text-sm text-white/40">{displayVideos.length} videoer totalt</p>

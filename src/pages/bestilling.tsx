@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/authContext';
 import { useTrends, createOrder, useOrders } from '../lib/hooks/uselivedata';
 import { consumePendingTrend } from '../lib/pendingTrend';
+import { useLanguage } from '../contexts/languageContext';
 import StatusBadge from '../components/statusbadge';
 import type { Trend } from '../lib/types';
 
@@ -22,6 +23,132 @@ function TikTokIcon({ size = 16 }: { size?: number }) {
     </svg>
   );
 }
+
+// ─────────────────────────────────────
+// Bilingual labels
+// ─────────────────────────────────────
+const LABELS = {
+  nb: {
+    trendingTopics:       'Trending Topics',
+    noTrends:             'Ingen trender ennå',
+    noTrendsHint:         'n8n henter dem automatisk hvert 6. time',
+    clearTrend:           'Fjern valg',
+    autoFilled:           'Auto-fylt',
+    filledAll:            'Fylte alle felt',
+    topicLabel:           '01 · Tema / Tittel',
+    topicPlaceholder:     'Hva skal videoen handle om?',
+    styleLabel:           '02 · Stil og tone',
+    styleHint:            'Velg eller skriv selv',
+    promptPlaceholderPre: 'Beskriv vinkling, tone og instruksjoner til AI-en...\n\nEksempel: «Lag en dramatisk video om',
+    promptPlaceholderPost:'Start med et sterkt spørsmål, bruk fakta og avslutt med call-to-action.»',
+    aiTip:                'AI bruker dette som instruksjon. Jo mer detaljert, jo bedre video.',
+    audienceLabel:        '03 · Målgruppe',
+    customAudiencePh:     'Eller skriv egendefinert målgruppe...',
+    platformLabel:        '04 · Plattform',
+    videoLangLabel:       '05 · Videospråk',
+    voiceLabel:           '06 · AI-stemme',
+    formatLabel:          '07 · Videoformat',
+    submitBtn:            'Start AI-Produksjon',
+    submitting:           'Sender til n8n...',
+    orderLog:             'Bestillingslogg',
+    noOrders:             'Ingen bestillinger ennå',
+    pipeline:             'Pipeline',
+    pipelineActive:       'Aktiv',
+    activeOrders:         (n: number) => `${n} video${n > 1 ? 'er' : ''} produseres nå`,
+    successMsg:           '🎬 Bestilling sendt! AI-produksjon starter nå.',
+    tones: {
+      engaging:      '⚡ Engasjerende',
+      informative:   '📚 Informativ',
+      humorous:      '😄 Humoristisk',
+      dramatic:      '🎭 Dramatisk',
+      inspirational: '✨ Inspirerende',
+      viral:         '🔥 Viral',
+    },
+    audiences: {
+      'Unge voksne 18–25':     '🎮 Unge (18–25)',
+      'Voksne 25–45':          '👔 Voksne (25–45)',
+      'Eldre 45+':             '🏡 Eldre (45+)',
+      'Tech-interesserte':     '💻 Tech',
+      'Foreldre med barn':     '👨‍👩‍👧 Foreldre',
+      'Studenter':             '🎓 Studenter',
+      'Profesjonelle':         '💼 Business',
+      'Helse og fitness':      '💪 Helse',
+      'Kreative og designere': '🎨 Kreative',
+      'Gamere':                '🕹️ Gamere',
+    } as Record<string, string>,
+    statusMap: {
+      pending:   'Venter...',
+      queued:    'I kø',
+      scripting: 'Skriver manus',
+      recording: 'Innspilling',
+      editing:   'Redigerer',
+      complete:  'Ferdig',
+      failed:    'Feilet',
+    } as Record<string, string>,
+    timeAgo: (m: number, h: number, d: number) =>
+      m < 1 ? 'Nå nettopp' : m < 60 ? `${m}m siden` : h < 24 ? `${h}t siden` : `${d}d siden`,
+  },
+  en: {
+    trendingTopics:       'Trending Topics',
+    noTrends:             'No trends yet',
+    noTrendsHint:         'n8n fetches them automatically every 6 hours',
+    clearTrend:           'Clear selection',
+    autoFilled:           'Auto-filled',
+    filledAll:            'Filled all fields',
+    topicLabel:           '01 · Topic / Title',
+    topicPlaceholder:     'What should the video be about?',
+    styleLabel:           '02 · Style & tone',
+    styleHint:            'Choose or write yourself',
+    promptPlaceholderPre: 'Describe angle, tone and instructions for the AI...\n\nExample: "Create a dramatic video about',
+    promptPlaceholderPost:'Start with a strong question, use facts and end with a call to action."',
+    aiTip:                'AI uses this as instruction. The more detailed, the better the video.',
+    audienceLabel:        '03 · Target audience',
+    customAudiencePh:     'Or write a custom target audience...',
+    platformLabel:        '04 · Platform',
+    videoLangLabel:       '05 · Video language',
+    voiceLabel:           '06 · AI voice',
+    formatLabel:          '07 · Video format',
+    submitBtn:            'Start AI Production',
+    submitting:           'Sending to n8n...',
+    orderLog:             'Order Log',
+    noOrders:             'No orders yet',
+    pipeline:             'Pipeline',
+    pipelineActive:       'Active',
+    activeOrders:         (n: number) => `${n} video${n > 1 ? 's' : ''} being produced`,
+    successMsg:           '🎬 Order sent! AI production starting now.',
+    tones: {
+      engaging:      '⚡ Engaging',
+      informative:   '📚 Informative',
+      humorous:      '😄 Humorous',
+      dramatic:      '🎭 Dramatic',
+      inspirational: '✨ Inspiring',
+      viral:         '🔥 Viral',
+    },
+    audiences: {
+      'Unge voksne 18–25':     '🎮 Youth (18–25)',
+      'Voksne 25–45':          '👔 Adults (25–45)',
+      'Eldre 45+':             '🏡 Seniors (45+)',
+      'Tech-interesserte':     '💻 Tech',
+      'Foreldre med barn':     '👨‍👩‍👧 Parents',
+      'Studenter':             '🎓 Students',
+      'Profesjonelle':         '💼 Business',
+      'Helse og fitness':      '💪 Health',
+      'Kreative og designere': '🎨 Creative',
+      'Gamere':                '🕹️ Gamers',
+    } as Record<string, string>,
+    statusMap: {
+      pending:   'Pending...',
+      queued:    'In queue',
+      scripting: 'Writing script',
+      recording: 'Recording',
+      editing:   'Editing',
+      complete:  'Done',
+      failed:    'Failed',
+    } as Record<string, string>,
+    timeAgo: (m: number, h: number, d: number) =>
+      m < 1 ? 'Just now' : m < 60 ? `${m}m ago` : h < 24 ? `${h}h ago` : `${d}d ago`,
+  },
+};
 
 // ─────────────────────────────────────
 // Platform-konfig
@@ -87,28 +214,28 @@ const VOICES: Record<string, { id: string; name: string; gender: string; quality
   ],
 };
 
-// Målgruppe-knapper
+// Målgruppe-knapper (id stored in DB, never changes)
 const AUDIENCES = [
-  { id: 'Unge voksne 18–25',    label: '🎮 Unge (18–25)'   },
-  { id: 'Voksne 25–45',         label: '👔 Voksne (25–45)' },
-  { id: 'Eldre 45+',            label: '🏡 Eldre (45+)'    },
-  { id: 'Tech-interesserte',    label: '💻 Tech'            },
-  { id: 'Foreldre med barn',    label: '👨‍👩‍👧 Foreldre'       },
-  { id: 'Studenter',            label: '🎓 Studenter'       },
-  { id: 'Profesjonelle',        label: '💼 Business'        },
-  { id: 'Helse og fitness',     label: '💪 Helse'           },
-  { id: 'Kreative og designere',label: '🎨 Kreative'        },
-  { id: 'Gamere',               label: '🕹️ Gamere'          },
+  { id: 'Unge voksne 18–25'    },
+  { id: 'Voksne 25–45'         },
+  { id: 'Eldre 45+'            },
+  { id: 'Tech-interesserte'    },
+  { id: 'Foreldre med barn'    },
+  { id: 'Studenter'            },
+  { id: 'Profesjonelle'        },
+  { id: 'Helse og fitness'     },
+  { id: 'Kreative og designere'},
+  { id: 'Gamere'               },
 ];
 
-// Tone/stil for prompt
+// Tone/stil — id and prompt text (always Norwegian for AI)
 const PROMPT_TONES = [
-  { id: 'engaging',      label: '⚡ Engasjerende', text: 'Lag en ekstremt engasjerende og fengende video med rask klipping og energisk tone.' },
-  { id: 'informative',   label: '📚 Informativ',   text: 'Lag en informativ og faktabasert video med tydelig struktur og lærerikt innhold.' },
-  { id: 'humorous',      label: '😄 Humoristisk',  text: 'Lag en morsom og underholdende video med humor, memes og lettbeint tone.' },
-  { id: 'dramatic',      label: '🎭 Dramatisk',    text: 'Lag en dramatisk og følelsesladet video med cinematisk stemning og sterk fortelling.' },
-  { id: 'inspirational', label: '✨ Inspirerende', text: 'Lag en inspirerende og motiverende video som berører seerne og gir dem lyst til å handle.' },
-  { id: 'viral',         label: '🔥 Viral',        text: 'Lag en ultra-viral video optimalisert for delinger, med hook de første 3 sekundene og sterk CTA.' },
+  { id: 'engaging',      text: 'Lag en ekstremt engasjerende og fengende video med rask klipping og energisk tone.' },
+  { id: 'informative',   text: 'Lag en informativ og faktabasert video med tydelig struktur og lærerikt innhold.' },
+  { id: 'humorous',      text: 'Lag en morsom og underholdende video med humor, memes og lettbeint tone.' },
+  { id: 'dramatic',      text: 'Lag en dramatisk og følelsesladet video med cinematisk stemning og sterk fortelling.' },
+  { id: 'inspirational', text: 'Lag en inspirerende og motiverende video som berører seerne og gir dem lyst til å handle.' },
+  { id: 'viral',         text: 'Lag en ultra-viral video optimalisert for delinger, med hook de første 3 sekundene og sterk CTA.' },
 ];
 
 // ─────────────────────────────────────
@@ -123,36 +250,50 @@ function normalizePlatform(raw: string | null | undefined): string {
   return 'desktop';
 }
 
-function buildPrompt(trend: Trend, tone?: string): string {
+function buildPrompt(trend: Trend, toneText?: string): string {
   const tags     = (trend.tags ?? []).slice(0, 5).filter(Boolean).join(', ');
   const growth   = trend.growth_stat ? ` Veksttall: ${trend.growth_stat}.` : '';
   const tagStr   = tags ? ` Fokusér på nøkkelord: ${tags}.` : '';
   const platform = trend.platform ?? 'sosiale medier';
-  const toneText = tone ? ` ${tone}` : '';
-  return `Lag en engasjerende video om: "${trend.title}".${growth}${tagStr}${toneText} Hold innholdet kortfattet, fengende og optimalisert for ${platform}.`;
+  const toneStr  = toneText ? ` ${toneText}` : '';
+  return `Lag en engasjerende video om: "${trend.title}".${growth}${tagStr}${toneStr} Hold innholdet kortfattet, fengende og optimalisert for ${platform}.`;
 }
 
-function timeAgo(dateStr: string): string {
+/** Map heat_level → tone id */
+function heatLevelToToneId(heatLevel: string | null | undefined): string {
+  if (heatLevel === 'fire')   return 'viral';
+  if (heatLevel === 'hot')    return 'engaging';
+  if (heatLevel === 'rising') return 'inspirational';
+  return 'informative';
+}
+
+/** Fuzzy-match trend.target_audience → AUDIENCES id (or '' if no match) */
+function matchAudienceId(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const ta = raw.toLowerCase();
+  // Exact match
+  const exact = AUDIENCES.find(a => a.id.toLowerCase() === ta);
+  if (exact) return exact.id;
+  // Fuzzy
+  if (ta.includes('18') || ta.includes('unge') || ta.includes('young') || ta.includes('teen'))          return 'Unge voksne 18–25';
+  if (ta.includes('25') || ta.includes('voksne') || ta.includes('adult'))                               return 'Voksne 25–45';
+  if (ta.includes('45') || ta.includes('eldre') || ta.includes('older') || ta.includes('senior'))       return 'Eldre 45+';
+  if (ta.includes('tech'))                                                                               return 'Tech-interesserte';
+  if (ta.includes('foreldre') || ta.includes('parent') || ta.includes('family') || ta.includes('barn')) return 'Foreldre med barn';
+  if (ta.includes('student'))                                                                            return 'Studenter';
+  if (ta.includes('business') || ta.includes('profesjonell') || ta.includes('professional'))            return 'Profesjonelle';
+  if (ta.includes('helse') || ta.includes('fitness') || ta.includes('health'))                          return 'Helse og fitness';
+  if (ta.includes('kreativ') || ta.includes('design') || ta.includes('creative'))                       return 'Kreative og designere';
+  if (ta.includes('gamer') || ta.includes('gaming') || ta.includes('spill'))                            return 'Gamere';
+  return '';
+}
+
+function timeAgoFn(dateStr: string, lbl: typeof LABELS['nb']): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60_000);
-  if (m < 1)  return 'Nå nettopp';
-  if (m < 60) return `${m}m siden`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}t siden`;
-  return `${Math.floor(h / 24)}d siden`;
-}
-
-function statusLabel(status: string): string {
-  const map: Record<string, string> = {
-    pending:   'Venter...',
-    queued:    'I kø',
-    scripting: 'Skriver manus',
-    recording: 'Innspilling',
-    editing:   'Redigerer',
-    complete:  'Ferdig',
-    failed:    'Feilet',
-  };
-  return map[status] ?? status;
+  const d = Math.floor(h / 24);
+  return lbl.timeAgo(m, h, d);
 }
 
 // ─────────────────────────────────────
@@ -204,16 +345,21 @@ const DEFAULT_FORM: FormState = {
 // ─────────────────────────────────────
 export default function Bestilling() {
   const { user }                                      = useAuth();
+  const { language }                                  = useLanguage();
   const { data: trends, loading: trendsLoading, refresh: refreshTrends } = useTrends();
   const { data: orders }                              = useOrders();
   const formRef                                       = useRef<HTMLDivElement>(null);
 
-  const [selectedTrend,  setSelectedTrend]  = useState<Trend | null>(null);
-  const [form,           setForm]           = useState<FormState>(DEFAULT_FORM);
-  const [submitting,     setSubmitting]     = useState(false);
-  const [submitResult,   setSubmitResult]   = useState<{ ok: boolean; msg: string } | null>(null);
-  const [lastRefreshed,  setLastRefreshed]  = useState<Date>(new Date());
-  const [customAudience, setCustomAudience] = useState('');
+  // Pick label set: English or Norwegian (fallback for es/de/fr/pt)
+  const lbl = language === 'en' ? LABELS.en : LABELS.nb;
+
+  const [selectedTrend,   setSelectedTrend]   = useState<Trend | null>(null);
+  const [selectedToneId,  setSelectedToneId]  = useState<string | null>(null);
+  const [form,            setForm]            = useState<FormState>(DEFAULT_FORM);
+  const [submitting,      setSubmitting]      = useState(false);
+  const [submitResult,    setSubmitResult]    = useState<{ ok: boolean; msg: string } | null>(null);
+  const [lastRefreshed,   setLastRefreshed]   = useState<Date>(new Date());
+  const [customAudience,  setCustomAudience]  = useState('');
 
   // ── Auto-refresh trends every 5 min ──
   useEffect(() => {
@@ -236,29 +382,50 @@ export default function Bestilling() {
     if (firstVoice) setForm(f => ({ ...f, voiceId: firstVoice.id }));
   }, [form.language]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Velg trend ──
+  // ── Velg trend — auto-fills tone + audience ──
   const handleSelectTrend = (trend: Trend) => {
     const mapped      = normalizePlatform(trend.platform);
     const platformCfg = PLATFORM_CFG[mapped];
+
+    // Auto-select tone from heat_level
+    const toneId   = heatLevelToToneId(trend.heat_level);
+    const toneObj  = PROMPT_TONES.find(t => t.id === toneId);
+
+    // Auto-select audience — fuzzy match or custom field
+    const audienceId = matchAudienceId(trend.target_audience);
+    const isPreset   = AUDIENCES.some(a => a.id === audienceId);
+
     setSelectedTrend(trend);
+    setSelectedToneId(toneId);
+    if (!isPreset && trend.target_audience) {
+      setCustomAudience(trend.target_audience);
+    } else {
+      setCustomAudience('');
+    }
     setForm(f => ({
       ...f,
       topic:          trend.title ?? '',
-      prompt:         buildPrompt(trend),
+      prompt:         buildPrompt(trend, toneObj?.text),
       platform:       mapped,
       format:         platformCfg?.defaultFormat ?? f.format,
-      targetAudience: trend.target_audience ?? '',
+      targetAudience: audienceId || trend.target_audience || '',
     }));
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
   };
 
-  const clearTrend = () => { setSelectedTrend(null); setForm(DEFAULT_FORM); };
+  const clearTrend = () => {
+    setSelectedTrend(null);
+    setSelectedToneId(null);
+    setCustomAudience('');
+    setForm(DEFAULT_FORM);
+  };
 
-  const applyTone = (toneText: string) => {
+  const applyTone = (toneId: string, toneText: string) => {
     const base = form.topic
       ? `Lag en engasjerende video om: "${form.topic}". ${toneText}`
       : toneText;
     setForm(f => ({ ...f, prompt: base }));
+    setSelectedToneId(toneId);
   };
 
   const handleManualRefresh = () => {
@@ -332,8 +499,9 @@ export default function Bestilling() {
         }
       }
 
-      setSubmitResult({ ok: true, msg: '🎬 Bestilling sendt! AI-produksjon starter nå.' });
+      setSubmitResult({ ok: true, msg: lbl.successMsg });
       setSelectedTrend(null);
+      setSelectedToneId(null);
       setForm(DEFAULT_FORM);
       setCustomAudience('');
       setTimeout(() => setSubmitResult(null), 6000);
@@ -359,7 +527,7 @@ export default function Bestilling() {
         <div className="bg-[#111118] border border-white/6 rounded-xl p-4 sm:p-5">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp size={15} className="text-teal-400" />
-            <h2 className="text-sm font-semibold text-white">Trending Topics</h2>
+            <h2 className="text-sm font-semibold text-white">{lbl.trendingTopics}</h2>
             {trendsLoading
               ? <RefreshCw size={12} className="text-white/30 animate-spin ml-1" />
               : <span className="text-[10px] text-white/25 ml-1">{trends.length} live</span>
@@ -368,19 +536,19 @@ export default function Bestilling() {
             <div className="flex items-center gap-1.5 ml-auto">
               <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
               <span className="text-[10px] text-white/25 hidden sm:block">
-                {timeAgo(lastRefreshed.toISOString())}
+                {timeAgoFn(lastRefreshed.toISOString(), lbl)}
               </span>
               <button
                 onClick={handleManualRefresh}
                 disabled={trendsLoading}
                 className="p-1.5 rounded-lg hover:bg-white/8 text-white/30 hover:text-white/60 transition-colors ml-1"
-                title="Oppdater nå"
+                title="Refresh"
               >
                 <RefreshCw size={12} className={trendsLoading ? 'animate-spin' : ''} />
               </button>
               {selectedTrend && (
                 <button onClick={clearTrend} className="text-xs text-white/35 hover:text-white/60 transition-colors ml-1">
-                  Fjern valg
+                  {lbl.clearTrend}
                 </button>
               )}
             </div>
@@ -389,8 +557,8 @@ export default function Bestilling() {
           {trends.length === 0 && !trendsLoading ? (
             <div className="flex flex-col items-center py-8 gap-2">
               <TrendingUp size={24} className="text-white/15" />
-              <p className="text-xs text-white/30">Ingen trender ennå</p>
-              <p className="text-[11px] text-white/20">n8n henter dem automatisk hvert 6. time</p>
+              <p className="text-xs text-white/30">{lbl.noTrends}</p>
+              <p className="text-[11px] text-white/20">{lbl.noTrendsHint}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -451,11 +619,11 @@ export default function Bestilling() {
                     <div className={`flex items-center justify-between text-[9px] ${isSelected ? 'text-teal-400/50' : 'text-white/20'}`}>
                       <span className="flex items-center gap-1">
                         <Calendar size={8} />
-                        {timeAgo(trend.updated_at ?? trend.created_at ?? new Date().toISOString())}
+                        {timeAgoFn(trend.updated_at ?? trend.created_at ?? new Date().toISOString(), lbl)}
                       </span>
                       {isSelected && (
                         <span className="flex items-center gap-0.5 text-teal-400 font-semibold">
-                          <Zap size={8} />Fylte alle felt<ChevronRight size={8} />
+                          <Zap size={8} />{lbl.filledAll}<ChevronRight size={8} />
                         </span>
                       )}
                     </div>
@@ -473,13 +641,13 @@ export default function Bestilling() {
           {/* ── 01 · Topic ── */}
           <div className="bg-[#111118] border border-white/6 rounded-xl p-4 sm:p-5 space-y-2">
             <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">
-              01 · Tema / Tittel
+              {lbl.topicLabel}
             </label>
             <input
               type="text"
               value={form.topic}
               onChange={e => setForm(f => ({ ...f, topic: e.target.value }))}
-              placeholder="Hva skal videoen handle om?"
+              placeholder={lbl.topicPlaceholder}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-teal-500/50 transition-all"
             />
           </div>
@@ -488,26 +656,27 @@ export default function Bestilling() {
           <div className="bg-[#111118] border border-white/6 rounded-xl p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-white/50 uppercase tracking-wider">
-                02 · Stil og tone
+                {lbl.styleLabel}
               </label>
-              <span className="text-[10px] text-white/25">Velg eller skriv selv</span>
+              <span className="text-[10px] text-white/25">{lbl.styleHint}</span>
             </div>
 
             {/* Tone-knapper */}
             <div className="flex gap-2 flex-wrap">
               {PROMPT_TONES.map(tone => {
-                const isActive = form.prompt.includes(tone.text.substring(0, 20));
+                const isActive = selectedToneId === tone.id;
+                const toneLabel = lbl.tones[tone.id as keyof typeof lbl.tones];
                 return (
                   <button
                     key={tone.id}
-                    onClick={() => applyTone(tone.text)}
+                    onClick={() => applyTone(tone.id, tone.text)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border active:scale-[0.97] ${
                       isActive
                         ? 'bg-teal-500/15 border-teal-500/30 text-teal-400'
                         : 'bg-white/4 border-white/8 text-white/50 hover:text-white/80 hover:border-white/20'
                     }`}
                   >
-                    {tone.label}
+                    {toneLabel}
                   </button>
                 );
               })}
@@ -518,13 +687,13 @@ export default function Bestilling() {
               <textarea
                 value={form.prompt}
                 onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))}
-                placeholder={`Beskriv vinkling, tone og instruksjoner til AI-en...\n\nEksempel: «Lag en dramatisk video om ${form.topic || 'emnet'}. Start med et sterkt spørsmål, bruk fakta og avslutt med call-to-action.»`}
+                placeholder={`${lbl.promptPlaceholderPre} ${form.topic || '…'}. ${lbl.promptPlaceholderPost}`}
                 rows={5}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-teal-500/50 transition-all resize-none leading-relaxed"
               />
               {form.prompt && (
                 <button
-                  onClick={() => setForm(f => ({ ...f, prompt: '' }))}
+                  onClick={() => { setForm(f => ({ ...f, prompt: '' })); setSelectedToneId(null); }}
                   className="absolute top-2.5 right-2.5 text-white/20 hover:text-white/50 transition-colors"
                 >
                   <X size={13} />
@@ -533,7 +702,7 @@ export default function Bestilling() {
             </div>
             <p className="text-[10px] text-white/20 flex items-center gap-1">
               <Sparkles size={9} />
-              AI bruker dette som instruksjon. Jo mer detaljert, jo bedre video.
+              {lbl.aiTip}
             </p>
           </div>
 
@@ -541,29 +710,32 @@ export default function Bestilling() {
           <div className="bg-[#111118] border border-white/6 rounded-xl p-4 sm:p-5 space-y-3">
             <label className="text-xs font-semibold text-white/50 uppercase tracking-wider flex items-center gap-2">
               <Users size={12} />
-              03 · Målgruppe
+              {lbl.audienceLabel}
               {form.targetAudience && selectedTrend && (
                 <span className="ml-auto text-[10px] text-teal-400/70 normal-case font-normal flex items-center gap-1">
-                  <Zap size={9} /> Auto-fylt
+                  <Zap size={9} /> {lbl.autoFilled}
                 </span>
               )}
             </label>
 
             {/* Predefinerte publikum-knapper */}
             <div className="flex flex-wrap gap-2">
-              {AUDIENCES.map(a => (
-                <button
-                  key={a.id}
-                  onClick={() => handleAudienceSelect(a.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border active:scale-[0.97] ${
-                    form.targetAudience === a.id
-                      ? 'bg-teal-500/15 border-teal-500/30 text-teal-300'
-                      : 'bg-white/4 border-white/8 text-white/50 hover:text-white/80 hover:border-white/20'
-                  }`}
-                >
-                  {a.label}
-                </button>
-              ))}
+              {AUDIENCES.map(a => {
+                const aLabel = lbl.audiences[a.id] ?? a.id;
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => handleAudienceSelect(a.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border active:scale-[0.97] ${
+                      form.targetAudience === a.id
+                        ? 'bg-teal-500/15 border-teal-500/30 text-teal-300'
+                        : 'bg-white/4 border-white/8 text-white/50 hover:text-white/80 hover:border-white/20'
+                    }`}
+                  >
+                    {aLabel}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Custom input */}
@@ -575,7 +747,7 @@ export default function Bestilling() {
                   setCustomAudience(e.target.value);
                   setForm(f => ({ ...f, targetAudience: e.target.value }));
                 }}
-                placeholder="Eller skriv egendefinert målgruppe..."
+                placeholder={lbl.customAudiencePh}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-teal-500/50 transition-all"
               />
               {form.targetAudience && (
@@ -599,7 +771,7 @@ export default function Bestilling() {
           {/* ── 04 · Plattform ── */}
           <div className="bg-[#111118] border border-white/6 rounded-xl p-4 sm:p-5 space-y-3">
             <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">
-              04 · Plattform
+              {lbl.platformLabel}
             </label>
             <div className="grid grid-cols-2 gap-2">
               {PLATFORMS.map(p => (
@@ -626,7 +798,7 @@ export default function Bestilling() {
             {/* Språk */}
             <div className="space-y-3">
               <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">
-                05 · Videospråk
+                {lbl.videoLangLabel}
               </label>
               <div className="flex gap-2 flex-wrap">
                 {LANGUAGES.map(l => (
@@ -649,7 +821,7 @@ export default function Bestilling() {
             <div className="space-y-3">
               <label className="text-xs font-semibold text-white/50 uppercase tracking-wider flex items-center gap-2">
                 <Mic size={12} />
-                06 · AI-stemme
+                {lbl.voiceLabel}
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {availableVoices.map(v => (
@@ -683,7 +855,7 @@ export default function Bestilling() {
           {/* ── 07 · Videoformat ── */}
           <div className="bg-[#111118] border border-white/6 rounded-xl p-4 sm:p-5 space-y-3">
             <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">
-              07 · Videoformat
+              {lbl.formatLabel}
             </label>
             <div className="grid grid-cols-3 gap-3">
               {FORMATS.map(f => (
@@ -711,8 +883,8 @@ export default function Bestilling() {
             className="w-full flex items-center justify-center gap-3 py-4 bg-teal-500 hover:bg-teal-400 disabled:opacity-40 text-white font-bold text-base rounded-xl transition-all shadow-lg shadow-teal-500/25 active:scale-[0.98]"
           >
             {submitting
-              ? <><RefreshCw size={18} className="animate-spin" /> Sender til n8n...</>
-              : <><Send size={18} /> Start AI-Produksjon</>
+              ? <><RefreshCw size={18} className="animate-spin" /> {lbl.submitting}</>
+              : <><Send size={18} /> {lbl.submitBtn}</>
             }
           </button>
 
@@ -742,7 +914,7 @@ export default function Bestilling() {
           <div className="bg-teal-500/8 border border-teal-500/20 rounded-xl p-4 flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse flex-shrink-0" />
             <p className="text-xs text-teal-300 font-medium">
-              {activeOrders.length} video{activeOrders.length > 1 ? 'er' : ''} produseres nå
+              {lbl.activeOrders(activeOrders.length)}
             </p>
           </div>
         )}
@@ -750,14 +922,14 @@ export default function Bestilling() {
         {/* Bestillingslogg */}
         <div className="bg-[#111118] border border-white/6 rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-white">Bestillingslogg</h3>
+            <h3 className="text-sm font-semibold text-white">{lbl.orderLog}</h3>
             <span className="text-xs text-white/30">{orders.length} totalt</span>
           </div>
 
           {orders.length === 0 ? (
             <div className="py-12 text-center">
               <Clock size={24} className="text-white/15 mx-auto mb-2" />
-              <p className="text-xs text-white/25">Ingen bestillinger ennå</p>
+              <p className="text-xs text-white/25">{lbl.noOrders}</p>
             </div>
           ) : (
             <div className="divide-y divide-white/4">
@@ -778,7 +950,7 @@ export default function Bestilling() {
                       <div className="mb-2">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[10px] text-white/30 italic">
-                            {order.sub_status || statusLabel(order.status)}
+                            {order.sub_status || lbl.statusMap[order.status] || order.status}
                           </span>
                           <span className="text-[10px] font-bold text-teal-400">
                             {progress}%
@@ -820,10 +992,10 @@ export default function Bestilling() {
         <div className="bg-white/2 border border-white/5 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <Flame size={12} className="text-orange-400" />
-            <p className="text-xs font-semibold text-white/50">Pipeline</p>
+            <p className="text-xs font-semibold text-white/50">{lbl.pipeline}</p>
             <div className="ml-auto flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-              <span className="text-[10px] text-teal-400/60">Aktiv</span>
+              <span className="text-[10px] text-teal-400/60">{lbl.pipelineActive}</span>
             </div>
           </div>
           <div className="space-y-1.5 text-[11px] text-white/30">

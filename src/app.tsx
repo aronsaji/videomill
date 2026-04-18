@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Page } from './lib/types';
 import { AuthProvider, useAuth } from './contexts/authContext';
 import { LanguageProvider } from './contexts/languageContext';
@@ -14,9 +14,33 @@ import Analytics from './pages/analytics';
 import Settings from './pages/settings';
 import Bestilling from './pages/bestilling';
 
+// ── Hash-based routing so F5 / direct URL keeps the correct page ──
+const VALID_PAGES: Page[] = [
+  'dashboard', 'trends', 'production', 'library',
+  'distribution', 'engagement', 'analytics', 'settings', 'bestilling',
+];
+
+function getPageFromHash(): Page {
+  const hash = window.location.hash.replace('#', '').split('?')[0] as Page;
+  return VALID_PAGES.includes(hash) ? hash : 'dashboard';
+}
+
 function AppContent() {
   const { user, loading } = useAuth();
-  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [currentPage, setCurrentPage] = useState<Page>(getPageFromHash);
+
+  // Keep URL hash in sync with page state
+  const handleNavigate = (page: Page) => {
+    window.location.hash = page;
+    setCurrentPage(page);
+  };
+
+  // React to browser back / forward and manual URL edits
+  useEffect(() => {
+    const onHashChange = () => setCurrentPage(getPageFromHash());
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   if (loading) {
     return (
@@ -37,20 +61,20 @@ function AppContent() {
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'dashboard': return <Dashboard onNavigate={setCurrentPage} />;
-      case 'bestilling': return <Bestilling />;
-      case 'trends': return <Trends />;
-      case 'production': return <Production />;
-      case 'library': return <Library />;
+      case 'dashboard':    return <Dashboard onNavigate={handleNavigate} />;
+      case 'bestilling':   return <Bestilling />;
+      case 'trends':       return <Trends onNavigate={handleNavigate} />;
+      case 'production':   return <Production />;
+      case 'library':      return <Library />;
       case 'distribution': return <Distribution />;
-      case 'engagement': return <Engagement />;
-      case 'analytics': return <Analytics />;
-      case 'settings': return <Settings />;
+      case 'engagement':   return <Engagement />;
+      case 'analytics':    return <Analytics />;
+      case 'settings':     return <Settings />;
     }
   };
 
   return (
-    <Layout currentPage={currentPage} onNavigate={setCurrentPage}>
+    <Layout currentPage={currentPage} onNavigate={handleNavigate}>
       {renderPage()}
     </Layout>
   );

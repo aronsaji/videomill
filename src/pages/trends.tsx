@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RefreshCw, Play, TrendingUp, Youtube, Instagram, Monitor, Flame, Users } from 'lucide-react';
 import { useTrends } from '../lib/hooks/uselivedata';
 import { useLanguage } from '../contexts/languageContext';
@@ -45,8 +45,18 @@ interface Props {
 
 export default function Trends({ onNavigate }: Props) {
   const { t } = useLanguage();
-  const { data: trends, loading } = useTrends();
+  const { data: trends, loading, refresh } = useTrends();
   const [filter, setFilter] = useState<string>('all');
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refresh();
+      setLastRefreshed(new Date());
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [refresh]);
 
   // Normalize platform key for icon/color lookup
   const normPlatform = (p: string | null | undefined) => {
@@ -98,7 +108,15 @@ export default function Trends({ onNavigate }: Props) {
 
         <div className="flex items-center gap-2 text-xs text-white/30">
           <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-          Live — oppdateres hver 6. time
+          <span className="hidden sm:inline">Sist oppdatert: {lastRefreshed.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}</span>
+          <button
+            onClick={() => { refresh(); setLastRefreshed(new Date()); }}
+            disabled={loading}
+            className="p-1.5 rounded-lg hover:bg-white/8 text-white/30 hover:text-white/60 transition-colors"
+            title="Oppdater nå"
+          >
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+          </button>
         </div>
       </div>
 

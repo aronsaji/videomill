@@ -45,3 +45,4 @@ vite.config.ts.timestamp-*
 *.pfx
 
 .vercel
+.env*.local

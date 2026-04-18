@@ -27,7 +27,7 @@ export default function Library() {
   }
 
   return (
-    <>
+    <div>
     {/* ── Video Modal ── */}
     {activeVideo && (
       <div
@@ -229,6 +229,6 @@ export default function Library() {
         </div>
       )}
     </div>
-    </>
+    </div>
   );
 }

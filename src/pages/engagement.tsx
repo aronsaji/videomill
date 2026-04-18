@@ -1,186 +1,278 @@
-import { useState } from 'react';
-import { MessageSquare, Send, Bot, ThumbsUp, Minus, ThumbsDown, Youtube, Hash } from 'lucide-react';
-import { mockComments } from '../lib/mockdata';
+import { useMemo } from 'react';
+import {
+  MessageSquare, Bot, ThumbsUp, Eye, Film,
+  Youtube, Instagram, Monitor, TrendingUp,
+  ArrowUpRight, RefreshCw, Link, Zap,
+} from 'lucide-react';
+import { useVideos, useTrends } from '../lib/hooks/uselivedata';
 import StatusBadge from '../components/statusbadge';
 
-const sentimentIcon = {
-  positive: <ThumbsUp size={12} className="text-teal-400" />,
-  neutral: <Minus size={12} className="text-slate-400" />,
-  negative: <ThumbsDown size={12} className="text-red-400" />,
-};
+function TikTokIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.17 8.17 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
+    </svg>
+  );
+}
 
-const platformIcon: Record<string, React.ReactNode> = {
-  YouTube: <Youtube size={12} className="text-red-400" />,
-  TikTok: <Hash size={12} className="text-pink-400" />,
-};
+function platformIcon(platform: string | null | undefined) {
+  const p = (platform ?? '').toLowerCase();
+  if (p.includes('youtube'))   return <Youtube size={12} className="text-red-400" />;
+  if (p.includes('tiktok'))    return <TikTokIcon size={12} />;
+  if (p.includes('instagram')) return <Instagram size={12} className="text-purple-400" />;
+  return <Monitor size={12} className="text-blue-400" />;
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60_000);
+  if (m < 1)  return 'Nå nettopp';
+  if (m < 60) return `${m}m siden`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}t siden`;
+  return `${Math.floor(h / 24)}d siden`;
+}
 
 export default function Engagement() {
-  const [comments, setComments] = useState(mockComments);
-  const [filter, setFilter] = useState<'all' | 'positive' | 'neutral' | 'negative' | 'unreplied'>('all');
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState('');
+  const { data: videos, loading: videosLoading, refresh } = useVideos();
+  const { data: trends } = useTrends();
 
-  const filtered = comments.filter(c => {
-    if (filter === 'all') return true;
-    if (filter === 'unreplied') return !c.replied;
-    return c.sentiment === filter;
-  });
+  // ── Live engasjements-stats fra videos ──
+  const completedVideos  = useMemo(() => videos.filter(v => v.status === 'complete'), [videos]);
+  const totalViews       = useMemo(() => videos.reduce((s, v) => s + (v.views ?? 0), 0), [videos]);
+  const activeVideos     = useMemo(() => videos.filter(v => ['queued','scripting','recording','editing','pending'].includes(v.status)), [videos]);
+  const topVideos        = useMemo(() => completedVideos.sort((a,b) => (b.views??0)-(a.views??0)).slice(0, 5), [completedVideos]);
 
-  const handleAutoReply = (id: string) => {
-    const comment = comments.find(c => c.id === id);
-    if (!comment) return;
-    const aiReply = `Takk for kommentaren, ${comment.author}! Vi setter stor pris på tilbakemeldingen din. Abonner for mer innhold som dette!`;
-    setComments(prev => prev.map(c => c.id === id ? { ...c, replied: true, reply_text: aiReply } : c));
-  };
+  // ── Platform-fordeling ──
+  const platformBreakdown = useMemo(() => {
+    const m: Record<string, { count: number; views: number }> = {};
+    videos.forEach(v => {
+      const p = v.platform ?? 'ukjent';
+      if (!m[p]) m[p] = { count: 0, views: 0 };
+      m[p].count++;
+      m[p].views += v.views ?? 0;
+    });
+    return Object.entries(m).sort((a, b) => b[1].views - a[1].views);
+  }, [videos]);
 
-  const handleSendReply = (id: string) => {
-    if (!replyText.trim()) return;
-    setComments(prev => prev.map(c => c.id === id ? { ...c, replied: true, reply_text: replyText } : c));
-    setReplyingTo(null);
-    setReplyText('');
-  };
-
-  const positiveCount = comments.filter(c => c.sentiment === 'positive').length;
-  const neutralCount = comments.filter(c => c.sentiment === 'neutral').length;
-  const negativeCount = comments.filter(c => c.sentiment === 'negative').length;
-  const unreplied = comments.filter(c => !c.replied).length;
+  const stats = [
+    { label: 'Totale visninger',    value: totalViews >= 1000 ? `${(totalViews/1000).toFixed(1)}k` : totalViews.toString(), icon: <Eye size={15} />,          color: 'teal',   sub: 'alle videoer' },
+    { label: 'Ferdige videoer',     value: completedVideos.length.toString(),                                                icon: <Film size={15} />,         color: 'blue',   sub: 'publisert' },
+    { label: 'Under produksjon',    value: activeVideos.length.toString(),                                                   icon: <RefreshCw size={15} />,    color: 'orange', sub: 'aktive jobber' },
+    { label: 'Trending topics',     value: trends.length.toString(),                                                         icon: <TrendingUp size={15} />,   color: 'cyan',   sub: 'live nå' },
+  ];
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-[#111118] border border-white/6 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <ThumbsUp size={14} className="text-teal-400" />
-            <span className="text-xs text-white/35 uppercase tracking-wider">Positive</span>
+
+      {/* ── Stats ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {stats.map(s => (
+          <div key={s.label} className="bg-[#111118] border border-white/6 rounded-xl p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] text-white/35 uppercase tracking-wider leading-tight">{s.label}</span>
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                s.color === 'teal'   ? 'bg-teal-500/15 text-teal-400'   :
+                s.color === 'blue'  ? 'bg-blue-500/15 text-blue-400'   :
+                s.color === 'orange'? 'bg-orange-500/15 text-orange-400' :
+                                      'bg-cyan-500/15 text-cyan-400'
+              }`}>{s.icon}</div>
+            </div>
+            {videosLoading
+              ? <div className="h-7 w-12 bg-white/5 rounded animate-pulse" />
+              : <p className="text-2xl font-bold text-white">{s.value}</p>
+            }
+            <p className="text-xs text-white/25 mt-1">{s.sub}</p>
           </div>
-          <p className="text-2xl font-bold text-white">{positiveCount}</p>
-          <p className="text-xs text-teal-400/70 mt-0.5">{Math.round((positiveCount / comments.length) * 100)}% av totalt</p>
-        </div>
-        <div className="bg-[#111118] border border-white/6 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Minus size={14} className="text-slate-400" />
-            <span className="text-xs text-white/35 uppercase tracking-wider">Nøytrale</span>
-          </div>
-          <p className="text-2xl font-bold text-white">{neutralCount}</p>
-          <p className="text-xs text-white/25 mt-0.5">{Math.round((neutralCount / comments.length) * 100)}% av totalt</p>
-        </div>
-        <div className="bg-[#111118] border border-white/6 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <ThumbsDown size={14} className="text-red-400" />
-            <span className="text-xs text-white/35 uppercase tracking-wider">Negative</span>
-          </div>
-          <p className="text-2xl font-bold text-white">{negativeCount}</p>
-          <p className="text-xs text-red-400/70 mt-0.5">{Math.round((negativeCount / comments.length) * 100)}% av totalt</p>
-        </div>
-        <div className="bg-[#111118] border border-white/6 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <MessageSquare size={14} className="text-amber-400" />
-            <span className="text-xs text-white/35 uppercase tracking-wider">Ubesvarte</span>
-          </div>
-          <p className="text-2xl font-bold text-white">{unreplied}</p>
-          <p className="text-xs text-amber-400/70 mt-0.5">Trenger svar</p>
-        </div>
+        ))}
       </div>
 
+      {/* ── AI-robot banner ── */}
       <div className="bg-teal-500/6 border border-teal-500/15 rounded-xl p-4 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center flex-shrink-0">
           <Bot size={16} className="text-teal-400" />
         </div>
-        <div>
-          <p className="text-sm font-medium text-white">AI-kommentar-robot er aktiv</p>
-          <p className="text-xs text-white/40">Overvåker kommentarer hvert 60. minutt · Svarer automatisk på enkle spørsmål</p>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-white">AI-engasjement-robot er aktiv</p>
+          <p className="text-xs text-white/40">Overvåker videoytelse · Auto-genererer innhold basert på trender</p>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+          <span className="text-[10px] text-teal-400/60">Live</span>
         </div>
       </div>
 
-      <div className="flex gap-1 bg-white/4 p-1 rounded-xl border border-white/6 w-fit">
-        {(['all', 'positive', 'neutral', 'negative', 'unreplied'] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              filter === f ? 'bg-teal-500/20 text-teal-400 border border-teal-500/25' : 'text-white/40 hover:text-white/70'
-            }`}
-          >
-            {f === 'all' ? 'Alle' : f === 'unreplied' ? 'Ubesvarte' : f === 'positive' ? 'Positive' : f === 'neutral' ? 'Nøytrale' : 'Negative'}
-          </button>
-        ))}
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
-      <div className="space-y-3">
-        {filtered.map((comment) => (
-          <div key={comment.id} className="bg-[#111118] border border-white/6 rounded-xl p-5 hover:border-white/10 transition-all">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3 flex-1 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500/30 to-cyan-500/20 flex items-center justify-center flex-shrink-0 text-xs font-bold text-teal-300">
-                  {comment.author[0].toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-semibold text-white/80">{comment.author}</span>
-                    <div className="flex items-center gap-1 text-white/30">{platformIcon[comment.platform]}</div>
-                    <StatusBadge status={comment.sentiment} />
-                    {comment.replied && (
-                      <span className="text-xs bg-teal-500/10 border border-teal-500/20 text-teal-400 px-1.5 py-0.5 rounded-full">Besvart</span>
+        {/* ── Top videoer ── */}
+        <div className="bg-[#111118] border border-white/6 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-semibold text-white">Mest sette videoer</h2>
+              <p className="text-xs text-white/35 mt-0.5">Rangert etter visninger</p>
+            </div>
+            <button
+              onClick={() => refresh()}
+              className="p-1.5 hover:bg-white/8 rounded-lg text-white/30 hover:text-white/60 transition-colors"
+            >
+              <RefreshCw size={12} className={videosLoading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+
+          {videosLoading ? (
+            <div className="space-y-3">
+              {[1,2,3].map(i => <div key={i} className="h-12 bg-white/3 rounded-lg animate-pulse" />)}
+            </div>
+          ) : topVideos.length === 0 ? (
+            <div className="flex flex-col items-center py-10 gap-2">
+              <Film size={24} className="text-white/15" />
+              <p className="text-xs text-white/25">Ingen ferdige videoer ennå</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {topVideos.map((video, i) => {
+                const thumb = (video.metadata as Record<string,string>|null)?.thumbnail ?? '';
+                const videoUrl = video.video_url ?? (video.metadata as Record<string,string>|null)?.video_url_16x9;
+                return (
+                  <div key={video.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-white/3 hover:bg-white/5 transition-colors group">
+                    <span className="text-xs font-bold text-white/20 w-4 text-right flex-shrink-0">{i+1}</span>
+                    <div className="relative w-12 h-8 rounded-md overflow-hidden bg-white/5 flex-shrink-0">
+                      {thumb
+                        ? <img src={thumb} alt="" className="w-full h-full object-cover" />
+                        : <Film size={10} className="text-white/20 m-auto mt-2" />
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-white/80 truncate">
+                        {video.title ?? video.topic ?? '—'}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {platformIcon(video.platform)}
+                        <span className="text-[10px] text-white/30 capitalize">{video.platform ?? '—'}</span>
+                        <span className="text-white/15">·</span>
+                        <span className="text-[10px] text-white/25">{timeAgo(video.created_at)}</span>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-bold text-white">
+                        {(video.views??0) >= 1000 ? `${((video.views??0)/1000).toFixed(1)}k` : (video.views??0)}
+                      </p>
+                      <p className="text-[10px] text-white/25">visn.</p>
+                    </div>
+                    {videoUrl && (
+                      <a href={videoUrl} target="_blank" rel="noopener noreferrer"
+                         className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-white/10 rounded-lg text-white/30 hover:text-white/60 transition-all">
+                        <ArrowUpRight size={13} />
+                      </a>
                     )}
                   </div>
-                  <p className="text-sm text-white/70 leading-relaxed">{comment.text}</p>
-                  <p className="text-xs text-white/25 mt-1">
-                    {comment.videoTitle} · {new Date(comment.posted_at).toLocaleString('nb-NO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-                  {comment.replied && comment.reply_text && (
-                    <div className="mt-3 ml-0 p-3 bg-teal-500/6 border border-teal-500/15 rounded-lg">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <Bot size={11} className="text-teal-400" />
-                        <span className="text-xs font-medium text-teal-400">AI-svar</span>
-                      </div>
-                      <p className="text-xs text-white/60 leading-relaxed">{comment.reply_text}</p>
-                    </div>
-                  )}
+        {/* ── Plattform-fordeling ── */}
+        <div className="bg-[#111118] border border-white/6 rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-white mb-1">Plattformfordeling</h2>
+          <p className="text-xs text-white/35 mb-4">Videoer og visninger per plattform</p>
 
-                  {replyingTo === comment.id && (
-                    <div className="mt-3 flex gap-2">
-                      <input
-                        type="text"
-                        value={replyText}
-                        onChange={e => setReplyText(e.target.value)}
-                        placeholder="Skriv et svar..."
-                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white/70 placeholder-white/25 focus:outline-none focus:border-teal-500/40"
-                        onKeyDown={e => e.key === 'Enter' && handleSendReply(comment.id)}
-                      />
-                      <button
-                        onClick={() => handleSendReply(comment.id)}
-                        className="px-3 py-2 bg-teal-500 text-white text-xs rounded-lg hover:bg-teal-400 transition-colors flex items-center gap-1"
-                      >
-                        <Send size={12} />
-                        Send
-                      </button>
+          {platformBreakdown.length === 0 ? (
+            <div className="flex flex-col items-center py-10 gap-2">
+              <Monitor size={24} className="text-white/15" />
+              <p className="text-xs text-white/25">Ingen plattformdata ennå</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {platformBreakdown.map(([platform, data]) => (
+                <div key={platform} className="p-3 rounded-xl bg-white/3 border border-white/5">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      {platformIcon(platform)}
+                      <span className="text-xs font-semibold text-white/70 capitalize">{platform}</span>
                     </div>
-                  )}
+                    <div className="flex items-center gap-3 text-xs text-white/40">
+                      <span>{data.count} video{data.count !== 1 ? 'er' : ''}</span>
+                      <span className="font-bold text-white/60">
+                        {data.views >= 1000 ? `${(data.views/1000).toFixed(1)}k` : data.views} visn.
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all duration-700"
+                      style={{ width: `${(data.count / (platformBreakdown[0][1].count)) * 100}%` }}
+                    />
+                  </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Aktive produksjoner ── */}
+      {activeVideos.length > 0 && (
+        <div className="bg-[#111118] border border-white/6 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Zap size={14} className="text-orange-400" />
+            <h2 className="text-sm font-semibold text-white">Under produksjon nå</h2>
+            <span className="text-xs bg-orange-500/15 text-orange-400 px-2 py-0.5 rounded-full ml-1">{activeVideos.length} aktive</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {activeVideos.slice(0, 6).map(v => (
+              <div key={v.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/3 border border-white/5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-white/80 truncate">{v.title ?? v.topic ?? '—'}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <StatusBadge status={v.status} size="sm" />
+                    {(v.progress ?? 0) > 0 && (
+                      <span className="text-[10px] text-teal-400">{v.progress}%</span>
+                    )}
+                  </div>
+                </div>
+                {platformIcon(v.platform)}
               </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-              {!comment.replied && (
-                <div className="flex gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => handleAutoReply(comment.id)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg hover:bg-teal-500/20 transition-all"
-                  >
-                    <Bot size={12} />
-                    AI-svar
-                  </button>
-                  <button
-                    onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/6 border border-white/10 text-white/60 text-xs rounded-lg hover:bg-white/10 transition-all"
-                  >
-                    <MessageSquare size={12} />
-                    Svar
-                  </button>
-                </div>
-              )}
+      {/* ── Kommentarer — coming soon ── */}
+      <div className="bg-[#111118] border border-white/6 rounded-xl p-5 sm:p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 rounded-xl bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+            <MessageSquare size={16} className="text-blue-400" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-white">Kommentarer & Sentiment</h2>
+            <p className="text-xs text-white/35">AI-analyse av kommentarer fra YouTube, TikTok og Instagram</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center py-10 gap-4 border border-dashed border-white/10 rounded-xl">
+          <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
+            <Link size={20} className="text-blue-400" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-semibold text-white/70 mb-1">Koble til sosiale medier</p>
+            <p className="text-xs text-white/35 max-w-sm leading-relaxed">
+              For å se kommentarer og AI-sentiment-analyse må du koble til YouTube og/eller TikTok via OAuth.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400">
+              <Youtube size={14} /> YouTube OAuth
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-pink-500/10 border border-pink-500/20 rounded-xl text-xs text-pink-400">
+              <TikTokIcon size={14} /> TikTok API
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-xl text-xs text-purple-400">
+              <Instagram size={14} /> Instagram API
             </div>
           </div>
-        ))}
+          <p className="text-xs text-white/20">Innstillinger → Kontokobling</p>
+        </div>
       </div>
     </div>
   );

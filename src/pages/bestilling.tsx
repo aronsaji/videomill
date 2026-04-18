@@ -404,7 +404,7 @@ export default function Bestilling() {
               value={form.topic}
               onChange={e => setForm(f => ({ ...f, topic: e.target.value }))}
               placeholder="Hva skal videoen handle om?"
-              className="w-full bg-[#0d0d18] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-teal-500/50 transition-all"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-teal-500/50 transition-all"
             />
           </div>
 
@@ -418,23 +418,42 @@ export default function Bestilling() {
               onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))}
               placeholder="Beskriv vinkling, tone, stil og instruksjoner til AI-en..."
               rows={5}
-              className="w-full bg-[#0d0d18] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-teal-500/50 transition-all resize-none"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-teal-500/50 transition-all resize-none"
             />
           </div>
 
-          {/* ── 03 Målgruppe — auto-fylt fra trend, ikke redigerbar ── */}
-          {form.targetAudience && (
-            <div className="bg-[#111118] border border-white/6 rounded-xl p-5 space-y-2">
-              <label className="text-xs font-semibold text-white/50 uppercase tracking-wider flex items-center gap-2">
-                <Users size={12} />
-                03 · Målgruppe (seere)
-              </label>
-              <div className="flex items-center gap-2.5 px-4 py-3 bg-teal-500/8 border border-teal-500/20 rounded-xl">
-                <Users size={13} className="text-teal-400 flex-shrink-0" />
-                <span className="text-sm text-teal-300">{form.targetAudience}</span>
+          {/* ── 03 Målgruppe ── */}
+          <div className="bg-[#111118] border border-white/6 rounded-xl p-5 space-y-2">
+            <label className="text-xs font-semibold text-white/50 uppercase tracking-wider flex items-center gap-2">
+              <Users size={12} />
+              03 · Målgruppe (seere)
+              {form.targetAudience && selectedTrend && (
+                <span className="ml-auto text-[10px] text-teal-400/70 normal-case font-normal flex items-center gap-1">
+                  <Zap size={9} /> Auto-fylt fra trend
+                </span>
+              )}
+            </label>
+            {form.targetAudience ? (
+              <div className="flex items-center justify-between gap-2.5 px-4 py-3 bg-teal-500/8 border border-teal-500/20 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <Users size={13} className="text-teal-400 flex-shrink-0" />
+                  <span className="text-sm text-teal-300">{form.targetAudience}</span>
+                </div>
+                <button
+                  onClick={() => setForm(f => ({ ...f, targetAudience: '' }))}
+                  className="text-white/25 hover:text-white/60 text-xs transition-colors"
+                >✕</button>
               </div>
-            </div>
-          )}
+            ) : (
+              <input
+                type="text"
+                value={form.targetAudience}
+                onChange={e => setForm(f => ({ ...f, targetAudience: e.target.value }))}
+                placeholder="F.eks. Unge voksne 18–35, tech-interesserte..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-teal-500/50 transition-all"
+              />
+            )}
+          </div>
 
           {/* ── 04 Platform ── */}
           <div className="bg-[#111118] border border-white/6 rounded-xl p-5 space-y-3">

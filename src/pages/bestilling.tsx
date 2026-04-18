@@ -433,6 +433,22 @@ export default function Bestilling() {
     setLastRefreshed(new Date());
   };
 
+  /** Selecting a format also snaps platform to a compatible one */
+  const handleFormatSelect = (formatId: string) => {
+    let newPlatform = form.platform;
+    if (formatId === '9:16') {
+      // 9:16 → keep if already tiktok/instagram, else default to tiktok
+      if (!['tiktok', 'instagram'].includes(form.platform)) newPlatform = 'tiktok';
+    } else if (formatId === '16:9') {
+      // 16:9 → keep if already youtube/desktop, else default to youtube
+      if (!['youtube', 'desktop'].includes(form.platform)) newPlatform = 'youtube';
+    } else if (formatId === '1:1') {
+      // 1:1 is always Instagram Feed
+      newPlatform = 'instagram';
+    }
+    setForm(f => ({ ...f, format: formatId, platform: newPlatform }));
+  };
+
   const handleAudienceSelect = (audienceId: string) => {
     if (form.targetAudience === audienceId) {
       setForm(f => ({ ...f, targetAudience: '' }));
@@ -861,7 +877,7 @@ export default function Bestilling() {
               {FORMATS.map(f => (
                 <button
                   key={f.id}
-                  onClick={() => setForm(s => ({ ...s, format: f.id }))}
+                  onClick={() => handleFormatSelect(f.id)}
                   className={`flex flex-col items-center gap-2 py-4 rounded-xl border transition-all active:scale-[0.97] ${
                     form.format === f.id
                       ? 'border-teal-500/40 bg-teal-500/10'

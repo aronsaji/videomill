@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Play, Download, Share2, Clock, Eye, Film, RefreshCw, ExternalLink } from 'lucide-react';
+import { Play, Download, Share2, Clock, Eye, Film, RefreshCw, ExternalLink, X } from 'lucide-react';
 import { useVideos } from '../lib/hooks/uselivedata';
 import StatusBadge from '../components/statusbadge';
 
@@ -12,7 +12,8 @@ function formatDuration(seconds: number | null | undefined) {
 
 export default function Library() {
   const { data: videos, loading, refresh } = useVideos();
-  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [view, setView]           = useState<'grid' | 'list'>('grid');
+  const [activeVideo, setActiveVideo] = useState<{ url: string; title: string } | null>(null);
 
   // Only show completed or failed videos that have some content
   const displayVideos = videos;
@@ -26,6 +27,34 @@ export default function Library() {
   }
 
   return (
+    <>
+    {/* ── Video Modal ── */}
+    {activeVideo && (
+      <div
+        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        onClick={() => setActiveVideo(null)}
+      >
+        <div
+          className="relative w-full max-w-3xl"
+          onClick={e => e.stopPropagation()}
+        >
+          <button
+            onClick={() => setActiveVideo(null)}
+            className="absolute -top-10 right-0 text-white/60 hover:text-white transition-colors flex items-center gap-1 text-sm"
+          >
+            <X size={16} /> Lukk
+          </button>
+          <video
+            src={activeVideo.url}
+            controls
+            autoPlay
+            className="w-full rounded-xl shadow-2xl"
+          />
+          <p className="text-white/50 text-sm mt-3 text-center">{activeVideo.title}</p>
+        </div>
+      </div>
+    )}
+    <div className="space-y-5">
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -80,16 +109,14 @@ export default function Library() {
                   }
                   {/* Play overlay */}
                   {videoUrl && (
-                    <a
-                      href={videoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    <button
+                      onClick={() => setActiveVideo({ url: videoUrl, title: video.title ?? video.topic ?? '' })}
+                      className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity w-full"
                     >
                       <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors">
                         <Play size={20} className="text-white fill-white ml-1" />
                       </div>
-                    </a>
+                    </button>
                   )}
                   {/* Duration */}
                   {durationSec != null && formatDuration(durationSec) && (
@@ -203,5 +230,6 @@ export default function Library() {
         </div>
       )}
     </div>
+    </>
   );
 }

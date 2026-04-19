@@ -347,8 +347,8 @@ export default function Bestilling() {
   const { user }                                      = useAuth();
   const { language }                                  = useLanguage();
   const { data: trends, loading: trendsLoading, refresh: refreshTrends } = useTrends();
-  const { data: orders }                              = useOrders();
-  const formRef                                       = useRef<HTMLDivElement>(null);
+  const { data: orders, refresh: refreshOrders }       = useOrders();
+  const formRef                                         = useRef<HTMLDivElement>(null);
 
   // Pick label set: English or Norwegian (fallback for es/de/fr/pt)
   const lbl = language === 'en' ? LABELS.en : LABELS.nb;
@@ -369,6 +369,16 @@ export default function Bestilling() {
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [refreshTrends]);
+
+  // ── Poll orders every 4s while pipeline is running (Realtime fallback) ──
+  useEffect(() => {
+    const hasActive = orders.some(o =>
+      ['pending','queued','scripting','recording','editing'].includes(o.status)
+    );
+    if (!hasActive) return;
+    const id = setInterval(() => refreshOrders(), 4000);
+    return () => clearInterval(id);
+  }, [orders, refreshOrders]);
 
   // ── Consume pending trend from Trends page ──
   useEffect(() => {
@@ -938,8 +948,25 @@ export default function Bestilling() {
         {/* Bestillingslogg */}
         <div className="bg-[#111118] border border-white/6 rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-white">{lbl.orderLog}</h3>
-            <span className="text-xs text-white/30">{orders.length} totalt</span>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white">{lbl.orderLog}</h3>
+              {orders.some(o => ['pending','queued','scripting','recording','editing'].includes(o.status)) && (
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                  <span className="text-[10px] text-teal-400/60">Live</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-white/30">{orders.length} totalt</span>
+              <button
+                onClick={() => refreshOrders()}
+                className="p-1 rounded-lg hover:bg-white/8 text-white/25 hover:text-white/60 transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw size={11} />
+              </button>
+            </div>
           </div>
 
           {orders.length === 0 ? (

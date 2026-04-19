@@ -14,20 +14,27 @@ interface DashboardProps {
   onNavigate: (page: Page) => void;
 }
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, lang: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60_000);
+  const h = Math.floor(m / 60);
+  const d = Math.floor(h / 24);
+  if (lang === 'en') {
+    if (m < 1)  return 'Just now';
+    if (m < 60) return `${m}m ago`;
+    if (h < 24) return `${h}h ago`;
+    return `${d}d ago`;
+  }
   if (m < 1)  return 'Nå nettopp';
   if (m < 60) return `${m}m siden`;
-  const h = Math.floor(m / 60);
   if (h < 24) return `${h}t siden`;
-  return `${Math.floor(h / 24)}d siden`;
+  return `${d}d siden`;
 }
 
 const STATUS_ACTIVE = ['pending', 'queued', 'scripting', 'recording', 'editing'];
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { data: trends, loading: trendsLoading } = useTrends();
   const { data: videos,  loading: videosLoading, refresh: refreshVideos } = useVideos();
 
@@ -81,34 +88,35 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     [trends]
   );
 
+  const isEn = language === 'en';
   const stats = [
     {
-      label: 'Totale visninger',
+      label: t.dashboard.totalViews,
       value: totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}k` : totalViews.toString(),
       icon: <Eye size={18} />,
       color: 'teal',
-      sub: 'alle videoer',
+      sub: isEn ? 'all videos' : 'alle videoer',
     },
     {
-      label: 'Ferdige videoer',
+      label: isEn ? 'Completed videos' : 'Ferdige videoer',
       value: completedVideos.toString(),
       icon: <Video size={18} />,
       color: 'blue',
-      sub: `${videos.length} totalt`,
+      sub: `${videos.length} ${isEn ? 'total' : 'totalt'}`,
     },
     {
-      label: 'Under produksjon',
+      label: t.dashboard.activeProductions,
       value: activeProductions.toString(),
       icon: <Film size={18} />,
       color: 'orange',
-      sub: activeProductions > 0 ? 'Kjører nå' : 'Ingen aktive',
+      sub: activeProductions > 0 ? (isEn ? 'Running now' : 'Kjører nå') : (isEn ? 'None active' : 'Ingen aktive'),
     },
     {
-      label: 'Varme trender',
+      label: isEn ? 'Hot trends' : 'Varme trender',
       value: hotTrends.toString(),
       icon: <TrendingUp size={18} />,
       color: 'cyan',
-      sub: `${trends.length} trender totalt`,
+      sub: `${trends.length} ${isEn ? 'trends total' : 'trender totalt'}`,
     },
   ];
 
@@ -146,8 +154,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         <div className="lg:col-span-2 bg-[#111118] border border-white/6 rounded-xl p-5 sm:p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-sm font-semibold text-white">Videoer produsert — siste 7 dager</h2>
-              <p className="text-xs text-white/35 mt-0.5">Antall bestillinger per dag</p>
+              <h2 className="text-sm font-semibold text-white">{isEn ? 'Videos produced — last 7 days' : 'Videoer produsert — siste 7 dager'}</h2>
+              <p className="text-xs text-white/35 mt-0.5">{isEn ? 'Orders per day' : 'Antall bestillinger per dag'}</p>
             </div>
             <div className="flex items-center gap-2">
               {loading && <RefreshCw size={12} className="text-white/30 animate-spin" />}
@@ -163,7 +171,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           {videos.length === 0 && !loading ? (
             <div className="flex flex-col items-center justify-center h-28 gap-2">
               <Film size={24} className="text-white/15" />
-              <p className="text-xs text-white/25">Ingen videoer ennå — bestill din første!</p>
+              <p className="text-xs text-white/25">{isEn ? 'No videos yet — order your first!' : 'Ingen videoer ennå — bestill din første!'}</p>
             </div>
           ) : (
             <div className="flex items-end gap-2 sm:gap-3 h-32">
@@ -197,19 +205,19 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               onClick={() => onNavigate('bestilling')}
               className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
             >
-              Se alle
+              {isEn ? 'See all' : 'Se alle'}
             </button>
           </div>
 
           {recentProductions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 gap-2">
               <Clock size={20} className="text-white/15" />
-              <p className="text-xs text-white/25">Ingen aktive produksjoner</p>
+              <p className="text-xs text-white/25">{isEn ? 'No active productions' : 'Ingen aktive produksjoner'}</p>
               <button
                 onClick={() => onNavigate('bestilling')}
                 className="mt-2 px-3 py-1.5 bg-teal-500/15 border border-teal-500/25 text-teal-400 text-xs rounded-lg hover:bg-teal-500/25 transition-all"
               >
-                + Ny bestilling
+                + {isEn ? 'New order' : 'Ny bestilling'}
               </button>
             </div>
           ) : (
@@ -256,7 +264,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               onClick={() => onNavigate('trends')}
               className="text-xs text-teal-400 hover:text-teal-300 flex items-center gap-1 transition-colors"
             >
-              Alle trender <ArrowUpRight size={12} />
+              {isEn ? 'All trends' : 'Alle trender'} <ArrowUpRight size={12} />
             </button>
           </div>
 
@@ -269,8 +277,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           ) : topTrends.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 gap-2">
               <TrendingUp size={20} className="text-white/15" />
-              <p className="text-xs text-white/25">Ingen trender ennå</p>
-              <p className="text-[11px] text-white/20">n8n henter automatisk hvert 6. time</p>
+              <p className="text-xs text-white/25">{isEn ? 'No trends yet' : 'Ingen trender ennå'}</p>
+              <p className="text-[11px] text-white/20">{isEn ? 'n8n fetches automatically every 6 hours' : 'n8n henter automatisk hvert 6. time'}</p>
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -326,7 +334,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               onClick={() => onNavigate('library')}
               className="text-xs text-teal-400 hover:text-teal-300 flex items-center gap-1 transition-colors"
             >
-              Bibliotek <ArrowUpRight size={12} />
+              {isEn ? 'Library' : 'Bibliotek'} <ArrowUpRight size={12} />
             </button>
           </div>
 
@@ -339,12 +347,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           ) : videos.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 gap-2">
               <Film size={20} className="text-white/15" />
-              <p className="text-xs text-white/25">Ingen videoer ennå</p>
+              <p className="text-xs text-white/25">{isEn ? 'No videos yet' : 'Ingen videoer ennå'}</p>
               <button
                 onClick={() => onNavigate('bestilling')}
                 className="mt-2 px-3 py-1.5 bg-teal-500/15 border border-teal-500/25 text-teal-400 text-xs rounded-lg hover:bg-teal-500/25 transition-all"
               >
-                Bestill første video
+                {isEn ? 'Order first video' : 'Bestill første video'}
               </button>
             </div>
           ) : (
@@ -381,7 +389,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           ? `${((vid.views ?? 0) / 1000).toFixed(1)}k`
                           : (vid.views ?? 0).toString()}
                       </p>
-                      <p className="text-[10px] text-white/25">{timeAgo(vid.created_at)}</p>
+                      <p className="text-[10px] text-white/25">{timeAgo(vid.created_at, language)}</p>
                     </div>
                   </div>
                 );
@@ -402,7 +410,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             <div className="flex items-center gap-2 mt-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
               <p className="text-xs text-white/40">
-                {trends.length} trender · {completedVideos} videoer · {activeProductions > 0 ? `${activeProductions} under produksjon` : 'Klar for bestilling'}
+                {trends.length} {isEn ? 'trends' : 'trender'} · {completedVideos} {isEn ? 'videos' : 'videoer'} · {activeProductions > 0 ? `${activeProductions} ${isEn ? 'in production' : 'under produksjon'}` : (isEn ? 'Ready to order' : 'Klar for bestilling')}
               </p>
             </div>
           </div>
@@ -418,7 +426,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             onClick={() => onNavigate('bestilling')}
             className="flex-1 sm:flex-none px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-xl hover:bg-teal-400 transition-colors shadow-lg shadow-teal-500/20"
           >
-            + Ny video
+            + {isEn ? 'New video' : 'Ny video'}
           </button>
         </div>
       </div>

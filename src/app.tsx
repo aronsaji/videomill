@@ -64,7 +64,7 @@ function AppContent() {
       case 'dashboard':    return <Dashboard onNavigate={handleNavigate} />;
       case 'bestilling':   return <Bestilling />;
       case 'trends':       return <Trends onNavigate={handleNavigate} />;
-      case 'production':   return <Production />;
+      case 'production':   return <Production onNavigate={handleNavigate} />;
       case 'library':      return <Library />;
       case 'distribution': return <Distribution />;
       case 'engagement':   return <Engagement />;

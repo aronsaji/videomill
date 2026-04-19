@@ -1,7 +1,23 @@
 import { useState } from 'react';
 import { Play, Download, Share2, Clock, Eye, Film, RefreshCw, ExternalLink, X } from 'lucide-react';
 import { useVideos } from '../lib/hooks/uselivedata';
+import { useLanguage } from '../contexts/languageContext';
 import StatusBadge from '../components/statusbadge';
+
+const LBL = {
+  nb: {
+    total: (n: number) => `${n} videoer totalt`,
+    grid: 'Rutenett', list: 'Liste',
+    empty: 'Ingen videoer ennå', emptyHint: 'Bestill en ny AI-video for å komme i gang',
+    close: 'Lukk', views: 'visninger',
+  },
+  en: {
+    total: (n: number) => `${n} videos total`,
+    grid: 'Grid', list: 'List',
+    empty: 'No videos yet', emptyHint: 'Order a new AI video to get started',
+    close: 'Close', views: 'views',
+  },
+};
 
 function formatDuration(seconds: number | null | undefined) {
   if (!seconds) return null;
@@ -12,6 +28,8 @@ function formatDuration(seconds: number | null | undefined) {
 
 export default function Library() {
   const { data: videos, loading, refresh } = useVideos();
+  const { language } = useLanguage();
+  const lbl = language === 'en' ? LBL.en : LBL.nb;
   const [view, setView]           = useState<'grid' | 'list'>('grid');
   const [activeVideo, setActiveVideo] = useState<{ url: string; title: string } | null>(null);
 
@@ -42,7 +60,7 @@ export default function Library() {
             onClick={() => setActiveVideo(null)}
             className="absolute -top-10 right-0 text-white/60 hover:text-white transition-colors flex items-center gap-1 text-sm"
           >
-            <X size={16} /> Lukk
+            <X size={16} /> {lbl.close}
           </button>
           <video
             src={activeVideo.url}
@@ -57,7 +75,7 @@ export default function Library() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <p className="text-sm text-white/40">{displayVideos.length} videoer totalt</p>
+          <p className="text-sm text-white/40">{lbl.total(displayVideos.length)}</p>
           <button
             onClick={() => refresh()}
             className="p-1.5 rounded-lg hover:bg-white/5 text-white/30 hover:text-white/60 transition-colors"
@@ -71,13 +89,13 @@ export default function Library() {
             onClick={() => setView('grid')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${view === 'grid' ? 'bg-teal-500/20 text-teal-400 border border-teal-500/25' : 'text-white/40 hover:text-white/70'}`}
           >
-            Rutenett
+            {lbl.grid}
           </button>
           <button
             onClick={() => setView('list')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${view === 'list' ? 'bg-teal-500/20 text-teal-400 border border-teal-500/25' : 'text-white/40 hover:text-white/70'}`}
           >
-            Liste
+            {lbl.list}
           </button>
         </div>
       </div>
@@ -85,8 +103,8 @@ export default function Library() {
       {displayVideos.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Film size={32} className="text-white/15" />
-          <p className="text-white/30 text-sm">Ingen videoer ennå</p>
-          <p className="text-white/20 text-xs">Bestill en ny AI-video for å komme i gang</p>
+          <p className="text-white/30 text-sm">{lbl.empty}</p>
+          <p className="text-white/20 text-xs">{lbl.emptyHint}</p>
         </div>
       ) : view === 'grid' ? (
         <div className="grid grid-cols-2 xl:grid-cols-3 gap-5">

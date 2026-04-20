@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node scripts/validate-deployment.mjs)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(node_modules\\\\.bin\\\\tsc --noEmit -p tsconfig.app.json)",
+      "Bash(./node_modules/.bin/tsc --noEmit -p tsconfig.app.json)",
+      "WebFetch(domain:replicate.com)",
+      "WebFetch(domain:api.replicate.com)",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(npx vite *)",
+      "Bash(npm install *)",
+      "Bash(npx vercel *)",
+      "WebFetch(domain:www.atlascloud.ai)",
+      "WebFetch(domain:runware.ai)",
+      "WebFetch(domain:lumalabs.ai)",
+      "Bash(cmd.exe /c \"cd C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL && git status\")",
+      "Bash(cmd.exe /c \"cd /d C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL && git status\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL'; git status\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL'; git diff --stat\")",
+      "Bash(powershell.exe -Command '@ *)",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL'; git add src/app.tsx src/pages/dashboard.tsx src/pages/library.tsx src/pages/production.tsx; git commit -m 'Fix critical bugs: production navigation+retry, bilingual dashboard+library'\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL'; git push origin main\")",
+      "Bash(powershell.exe -Command \"Get-Content 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL\\\\src\\\\pages\\\\library.tsx' | Select-Object -Last 15\")",
+      "Bash(powershell.exe -Command \"\\(Get-Content 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL\\\\src\\\\pages\\\\library.tsx'\\).Count\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL'; git log --oneline -5\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL'; git fetch origin; git log --oneline origin/main -8\")",
+      "Bash(powershell.exe -Command \"Select-String -Path 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL\\\\src\\\\pages\\\\library.tsx' -Pattern '<>' -CaseSensitive\")",
+      "Bash(powershell.exe -Command \"Select-String -Path 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL\\\\src\\\\pages\\\\library.tsx' -Pattern '</>' -CaseSensitive\")",
+      "Bash(powershell.exe -Command \"Test-Path 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL\\\\src\\\\lib\\\\supabaseClient.ts'\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL\\\\src\\\\lib\\\\' | Select-Object Name\")",
+      "Bash(powershell.exe -Command \"Select-String -Path 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL\\\\src\\\\lib\\\\types.ts' -Pattern 'Page'\")",
+      "Bash(powershell.exe -Command \"Select-String -Path 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL\\\\src\\\\lib\\\\hooks\\\\uselivedata.ts' -Pattern 'export.*updateVideoStatus'\")",
+      "Bash(powershell.exe -Command \"Select-String -Path 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL\\\\src\\\\lib\\\\types.ts' -Pattern 'interface Video|type Video' -CaseSensitive\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL'; git add src/pages/bestilling.tsx; git commit -m 'Add 4s polling fallback + live indicator + refresh button to order log'\")",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL'; git diff src/pages/library.tsx | head -40\")",
+      "Bash(gh api *)",
+      "WebFetch(domain:videomill.vercel.app)",
+      "WebFetch(domain:openrouter.ai)"
+    ]
+  }
+}

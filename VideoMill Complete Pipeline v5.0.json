@@ -176,7 +176,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = items[0].json;\nconst scenes = item.scenes || [];\nconst videoId = item.video_id;\n\nreturn scenes.map((scene, index) => ({\n  json: {\n    ...item,\n    video_id: videoId,\n    scene,\n    batchIndex: index,\n    duration_seconds: scene.duration_seconds || 5,\n    search_query: (scene.search_keywords && scene.search_keywords[0]) || item.topic || 'nature',\n  }\n}));\n\n\nconst item = items[0].json;\nconst scenes = item.scenes || [];\nconst videoId = item.video_id || $('Webhook - Video Request').first().json.body.video_id;\n\nreturn scenes.map((scene, index) => ({\n  json: {\n    ...item,\n    video_id: videoId,\n    scene,\n    batchIndex: index,\n    duration_seconds: scene.duration_seconds || 5,\n    search_query: (scene.search_keywords && scene.search_keywords[0]) || item.topic || 'nature',\n  }\n}));"
+        "jsCode": "const item = items[0].json;\nconst scenes = item.scenes || [];\nconst videoId = item.video_id || $('Webhook - Video Request').first().json.body.video_id;\n\nreturn scenes.map((scene, index) => ({\n  json: {\n    ...item,\n    video_id: videoId,\n    scene,\n    batchIndex: index,\n    duration_seconds: scene.duration_seconds || 5,\n    search_query: (scene.search_keywords && scene.search_keywords[0]) || item.topic || 'nature',\n  }\n}));"
       },
       "id": "7342c8e6-d3a9-49f0-81b7-2594e9d07914",
       "name": "Split Scenes",

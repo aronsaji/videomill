@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
-import { Bot, TrendingUp, DollarSign, Shield, Palette, MessageSquare, RefreshCw, AlertTriangle, CheckCircle2, Lightbulb, Clock, User, Hash, Megaphone } from 'lucide-react';
+import { Bot, TrendingUp, DollarSign, Shield, MessageSquare, RefreshCw, AlertTriangle, CheckCircle2, Lightbulb, Clock, Hash, Megaphone, Activity, Zap, Brain, Eye } from 'lucide-react';
 import { useAgentReports, useSocialResponses } from '../lib/hooks/uselivedata';
+import { useLanguage } from '../contexts/languageContext';
+import { PageHeader } from '../components/PageHeader';
 
 const AGENT_CONFIG = {
   COO: {
@@ -10,16 +12,20 @@ const AGENT_CONFIG = {
     color: 'text-blue-400',
     bg: 'bg-blue-500/10',
     border: 'border-blue-500/30',
+    accent: 'from-blue-500/20 to-cyan-500/10',
     description: 'Operasjoner, effektivitet og produksjons-KPIer',
+    schedule: 'Daglig kl 02:00',
   },
   CFO: {
     name: 'CFO',
     title: 'Chief Financial Officer',
     icon: DollarSign,
-    color: 'text-green-400',
-    bg: 'bg-green-500/10',
-    border: 'border-green-500/30',
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/30',
+    accent: 'from-emerald-500/20 to-green-500/10',
     description: 'Økonomi, ROI og kostnadsanalyse',
+    schedule: 'Daglig kl 02:00',
   },
   Marketing: {
     name: 'Marketing',
@@ -28,33 +34,100 @@ const AGENT_CONFIG = {
     color: 'text-purple-400',
     bg: 'bg-purple-500/10',
     border: 'border-purple-500/30',
+    accent: 'from-purple-500/20 to-pink-500/10',
     description: 'Trender, content-strategi og hashtags',
+    schedule: 'Hver 4. time',
   },
   CISO: {
     name: 'CISO',
-    title: 'Chief Information Security Officer',
+    title: 'Chief Security Officer',
     icon: Shield,
     color: 'text-red-400',
     bg: 'bg-red-500/10',
     border: 'border-red-500/30',
+    accent: 'from-red-500/20 to-orange-500/10',
     description: 'Sikkerhet og ISO 27001 compliance',
+    schedule: 'Hver time',
+  },
+  ErrorFixer: {
+    name: 'Error Fixer',
+    title: 'Auto-Error Resolution',
+    icon: Zap,
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/30',
+    accent: 'from-amber-500/20 to-yellow-500/10',
+    description: 'Auto-retter feilede videoer',
+    schedule: 'Hver 15. min',
   },
   SocialResponse: {
     name: 'Social Response',
     title: 'Social Media Agent',
     icon: MessageSquare,
-    color: 'text-yellow-400',
-    bg: 'bg-yellow-500/10',
-    border: 'border-yellow-500/30',
+    color: 'text-cyan-400',
+    bg: 'bg-cyan-500/10',
+    border: 'border-cyan-500/30',
+    accent: 'from-cyan-500/20 to-blue-500/10',
     description: 'Svar på sosiale medier',
+    schedule: 'Ved webhook',
   },
 };
 
-function AgentCard({ report, config }: { report: any; config: any }) {
+function AgentSummaryCard({ agentKey, config, latestReport }: { agentKey: string; config: any; latestReport?: any }) {
+  const Icon = config.icon;
+  const hasData = !!latestReport;
+  
+  return (
+    <div className={`relative overflow-hidden ${config.bg} border ${config.border} rounded-2xl p-5 hover:border-white/20 transition-all group`}>
+      <div className={`absolute inset-0 bg-gradient-to-br ${config.accent} opacity-50`} />
+      <div className="relative">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-xl ${config.bg} border ${config.border}`}>
+              <Icon className={`w-5 h-5 ${config.color}`} />
+            </div>
+            <div>
+              <h3 className={`font-bold ${config.color}`}>{config.name}</h3>
+              <p className="text-xs text-white/40">{config.title}</p>
+            </div>
+          </div>
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs ${hasData ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-white/5 text-white/30'}`}>
+            <Activity size={10} />
+            {hasData ? 'Active' : 'Waiting'}
+          </div>
+        </div>
+        
+        <p className="text-sm text-white/60 mb-3">{config.description}</p>
+        
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs text-white/30">
+            <Clock size={11} />
+            {config.schedule}
+          </div>
+          {latestReport && (
+            <span className="text-xs text-white/40">
+              {new Date(latestReport.created_at).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+        </div>
+        
+        {latestReport && (
+          <div className="mt-3 pt-3 border-t border-white/10">
+            <p className="text-xs text-white/50 line-clamp-2">
+              {latestReport.report || latestReport.financial_summary || latestReport.content_strategy || latestReport.security_status || 'Ingen data'}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AgentDetailCard({ report, config }: { report: any; config: any }) {
   const Icon = config.icon;
   
   return (
-    <div className={`${config.bg} border ${config.border} rounded-xl p-4 sm:p-5`}>
+    <div className={`${config.bg} border ${config.border} rounded-xl p-4`}>
       <div className="flex items-start gap-3 mb-3">
         <div className={`p-2 rounded-lg ${config.bg}`}>
           <Icon className={`w-5 h-5 ${config.color}`} />
@@ -147,28 +220,17 @@ function AgentCard({ report, config }: { report: any; config: any }) {
           }`}>{report.risk_level}</span>
         </div>
       )}
-
-      {report.from_user && report.original_message && (
-        <div className="mt-3 pt-3 border-t border-white/10">
-          <div className="flex items-center gap-2 mb-2">
-            <User className="w-3 h-3 text-white/40" />
-            <span className="text-xs text-white/60">{report.from_user}</span>
-            <span className="text-xs text-white/30">på {report.platform}</span>
-          </div>
-          <p className="text-xs text-white/50 italic">"{report.original_message}"</p>
-        </div>
-      )}
     </div>
   );
 }
 
 function SocialResponseCard({ response }: { response: any }) {
   return (
-    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+    <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
-        <MessageSquare className="w-4 h-4 text-yellow-400" />
-        <span className="text-sm font-medium text-yellow-400">Svar sendt</span>
-        <span className="text-xs text-white/40 ml-auto">
+        <MessageSquare className="w-4 h-4 text-cyan-400" />
+        <span className="text-sm font-medium text-cyan-400">Svar sendt</span>
+        <span className="text-xs text-white/30 ml-auto">
           {new Date(response.created_at).toLocaleString('nb-NO')}
         </span>
       </div>
@@ -178,8 +240,8 @@ function SocialResponseCard({ response }: { response: any }) {
           <p className="text-sm text-white/70 italic">"{response.original_message}"</p>
         </div>
       )}
-      <div className="mt-2 pt-2 border-t border-yellow-500/20">
-        <p className="text-xs text-yellow/40">Svar:</p>
+      <div className="mt-2 pt-2 border-t border-cyan-500/20">
+        <p className="text-xs text-cyan/40">Svar:</p>
         <p className="text-sm text-white">{response.message}</p>
       </div>
     </div>
@@ -189,6 +251,7 @@ function SocialResponseCard({ response }: { response: any }) {
 export default function Agents() {
   const { data: reports, loading, refresh } = useAgentReports();
   const { data: socialResponses } = useSocialResponses();
+  const { t } = useLanguage();
 
   const reportsByAgent = useMemo(() => {
     const grouped: Record<string, any[]> = {};
@@ -218,49 +281,27 @@ export default function Agents() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-            <Bot className="w-6 h-6 text-blue-400" />
-            AI Agenter
-          </h1>
-          <p className="text-sm text-white/50">Overvåking og automatisering</p>
-        </div>
-        <button
-          onClick={() => refresh()}
-          className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-        >
-          <RefreshCw className="w-4 h-4 text-white/60" />
-        </button>
+      <PageHeader
+        title="AI Agenter"
+        subtitle="Automatiserte executive assistenter"
+        icon={Bot}
+        onRefresh={refresh}
+        loading={loading}
+      />
+
+      {/* Agent Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Object.entries(AGENT_CONFIG).map(([key, config]) => (
+          <AgentSummaryCard 
+            key={key} 
+            agentKey={key} 
+            config={config} 
+            latestReport={latestByAgent[key]} 
+          />
+        ))}
       </div>
 
-      {/* Executive Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {Object.entries(AGENT_CONFIG).map(([key, config]) => {
-          const report = latestByAgent[key];
-          const Icon = config.icon;
-          return (
-            <div
-              key={key}
-              className={`${config.bg} border ${config.border} rounded-xl p-4`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Icon className={`w-4 h-4 ${config.color}`} />
-                <span className={`text-sm font-medium ${config.color}`}>{key}</span>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-white/40">
-                <Clock className="w-3 h-3" />
-                {report
-                  ? new Date(report.created_at).toLocaleString('nb-NO', { hour: '2-digit', minute: '2-digit' })
-                  : 'Ingen data'}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Full Reports by Agent */}
+      {/* Detailed Reports by Agent */}
       {Object.entries(AGENT_CONFIG).map(([key, config]) => {
         const agentReports = reportsByAgent[key] ?? [];
         if (agentReports.length === 0) return null;
@@ -269,14 +310,14 @@ export default function Agents() {
           <div key={key}>
             <h2 className={`text-lg font-semibold ${config.color} mb-3 flex items-center gap-2`}>
               <config.icon className="w-5 h-5" />
-              {config.name}
+              {config.name} Rapporter
               <span className="text-xs text-white/30 font-normal">
-                ({agentReports.length} rapporter)
+                ({agentReports.length})
               </span>
             </h2>
             <div className="grid gap-4">
-              {agentReports.slice(0, 5).map((report) => (
-                <AgentCard key={report.id} report={report} config={config} />
+              {agentReports.slice(0, 3).map((report) => (
+                <AgentDetailCard key={report.id} report={report} config={config} />
               ))}
             </div>
           </div>
@@ -285,11 +326,11 @@ export default function Agents() {
 
       {/* Social Responses */}
       <div>
-        <h2 className="text-lg font-semibold text-yellow-400 mb-3 flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-cyan-400 mb-3 flex items-center gap-2">
           <MessageSquare className="w-5 h-5" />
           Sosiale medier-svar
           <span className="text-xs text-white/30 font-normal">
-            ({(socialResponses ?? []).length} svar)
+            ({(socialResponses ?? []).length})
           </span>
         </h2>
         {(socialResponses ?? []).length === 0 ? (
@@ -303,19 +344,38 @@ export default function Agents() {
         )}
       </div>
 
-      {/* How to use */}
-      <div className="bg-white/5 rounded-xl p-4">
+      {/* Info Box */}
+      <div className="bg-white/5 rounded-xl p-4 border border-white/10">
         <h3 className="text-sm font-medium text-white/70 mb-2 flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-green-400" />
-          Slik fungerer det
+          <Brain className="w-4 h-4 text-blue-400" />
+          Agent Oversikt
         </h3>
-        <ul className="text-xs text-white/50 space-y-1">
-          <li>• <strong className="text-white/70">COO</strong> – kjører daglig: analyserer operasjoner og effektivitet</li>
-          <li>• <strong className="text-white/70">CFO</strong> – kjører daglig: økonomisk analyse og ROI</li>
-          <li>• <strong className="text-white/70">Marketing</strong> – kjører hver 4. time: trender og strategi</li>
-          <li>• <strong className="text-white/70">CISO</strong> – kjører hver time: sikkerhet og compliance</li>
-          <li>• <strong className="text-white/70">Social Response</strong> – aktiveres via webhook på /social-response</li>
-        </ul>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs text-white/50">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-3 h-3 text-blue-400" />
+            <span><strong className="text-blue-400">COO</strong> - Daglig</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <DollarSign className="w-3 h-3 text-emerald-400" />
+            <span><strong className="text-emerald-400">CFO</strong> - Daglig</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Megaphone className="w-3 h-3 text-purple-400" />
+            <span><strong className="text-purple-400">Marketing</strong> - 4t</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Shield className="w-3 h-3 text-red-400" />
+            <span><strong className="text-red-400">CISO</strong> - Hver time</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Zap className="w-3 h-3 text-amber-400" />
+            <span><strong className="text-amber-400">Error Fixer</strong> - 15m</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-3 h-3 text-cyan-400" />
+            <span><strong className="text-cyan-400">Social</strong> - Webhook</span>
+          </div>
+        </div>
       </div>
     </div>
   );

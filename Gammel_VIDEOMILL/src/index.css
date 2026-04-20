@@ -1,0 +1,102 @@
+/* src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Ny base: #090910 */
+    --background: 240 10% 4.7%; 
+    --foreground: 0 0% 100%;
+    
+    /* Cards: Gjennomsiktig hvit over den mørke basen */
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 100%;
+    
+    --popover: 240 10% 5%;
+    --popover-foreground: 0 0% 100%;
+    
+    /* Primary: Teal/Cyan (#14b8a6) */
+    --primary: 171 77% 40%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary: Mørk glass */
+    --secondary: 240 10% 10%;
+    --secondary-foreground: 0 0% 98%;
+    
+    /* Muted: Mer subtil for hierarki */
+    --muted: 240 10% 15%;
+    --muted-foreground: 240 5% 65%;
+    
+    /* Accent: Subtil Teal glow */
+    --accent: 171 77% 40%;
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    
+    /* Borders: Ekstremt tynne og subtile */
+    --border: 0 0% 100% / 0.08;
+    --input: 0 0% 100% / 0.05;
+    --ring: 171 77% 40%;
+    
+    /* Rundere hjørner for 2026-look */
+    --radius: 1rem;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px; 
+    letter-spacing: -0.015em;
+    /* Legger til en subtil gradient over hele siden for dybde */
+    background-image: radial-gradient(circle at top right, rgba(20, 184, 166, 0.03), transparent 40%),
+                      radial-gradient(circle at bottom left, rgba(20, 184, 166, 0.02), transparent 40%);
+    background-attachment: fixed;
+  }
+
+  /* Globale overstyringer for glass-morfisme */
+  .border {
+    @apply border-white/5;
+  }
+
+  /* Automatisk glass-effekt på alle Shadcn Cards */
+  .bg-card {
+    @apply backdrop-blur-xl bg-white/[0.02] border border-white/10 shadow-2xl;
+  }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+    @apply text-white/60 font-medium tracking-tight;
+  }
+}
+
+@layer components {
+  /* En standard glass-container du kan bruke overalt */
+  .glass-panel {
+    @apply bg-white/[0.03] border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl;
+  }
+
+  /* Forbedret input-felt */
+  .input-field {
+    @apply bg-black/40 border border-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all outline-none rounded-xl;
+  }
+}
+
+/* Custom Scrollbar - Minimalistisk og moderne */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+}
+
+/* Custom selection color */
+::selection {
+  @apply bg-primary/30 text-white;
+}

@@ -1,0 +1,119 @@
+{
+  "name": "VideoMill Simple Pipeline v5",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "videomill-simple",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook",
+      "name": "Webhook - Video Request",
+      "type": "n8n-nodes-base.webhook",
+      "position": [1500, 3000],
+      "typeVersion": 2.1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get input data\nconst input = items[0]?.json || {};\nconst data = input.body || input;\n\n// Return data for next node\nreturn [{ json: {\n  ...data,\n  processed_at: new Date().toISOString(),\n  step: 'received'\n}}];"
+      },
+      "id": "get-input",
+      "name": "Get Input Data",
+      "type": "n8n-nodes-base.code",
+      "position": [1700, 3000],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "{{$env.SUPABASE_URL}}/rest/v1/videos?id=eq.{{$json.video_id}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "{{$env.SUPABASE_SERVICE_ROLE_KEY}}"},
+            {"name": "Authorization", "value": "Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=minimal"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"status\": \"queued\", \"progress\": 5}",
+        "options": {}
+      },
+      "id": "set-status",
+      "name": "Set Status: Queued",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1900, 3000],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\": \"success\", \"message\": \"Video queued for production\"}",
+        "options": {"responseCode": 200}
+      },
+      "id": "respond",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [2100, 3000],
+      "typeVersion": 1.5
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate script with Groq\nconst input = items[0]?.json || {};\n\nconst prompt = `Create a short, engaging video script about: ${input.topic || input.title || 'trending topic'}\n\nRequirements:\n- 5 scenes\n- Each scene 5-8 seconds\n- Include narration and visual description\n- Return JSON with scenes array`;\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'https://api.groq.com/openai/v1/chat/completions',\n  headers: {\n    'Authorization': 'Bearer ' + $env.GROQ_API_KEY,\n    'Content-Type': 'application/json'\n  },\n  body: {\n    model: 'llama-3.1-8b-instant',\n    messages: [\n      { role: 'system', content: 'You are a viral video script writer. Always return valid JSON.' },\n      { role: 'user', content: prompt }\n    ],\n    max_tokens: 1500,\n    temperature: 0.7\n  },\n  json: true\n});\n\nlet script = { scenes: [] };\ntry {\n  const content = response.choices?.[0]?.message?.content || '';\n  script = JSON.parse(content);\n} catch {}\n\nreturn [{ json: { ...input, script, step: 'script_generated' } }];"
+      },
+      "id": "generate-script",
+      "name": "Generate Script",
+      "type": "n8n-nodes-base.code",
+      "position": [2300, 3000],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simulate video completion (in real use, this would create actual video)\nconst input = items[0]?.json || {};\n\nreturn [{ json: {\n  ...input,\n  status: 'complete',\n  progress: 100,\n  video_url: 'https://example.com/video.mp4',\n  step: 'complete',\n  completed_at: new Date().toISOString()\n}}];"
+      },
+      "id": "complete-video",
+      "name": "Complete Video",
+      "type": "n8n-nodes-base.code",
+      "position": [2500, 3000],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "{{$env.SUPABASE_URL}}/rest/v1/videos?id=eq.{{$json.video_id}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "{{$env.SUPABASE_SERVICE_ROLE_KEY}}"},
+            {"name": "Authorization", "value": "Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"status\": \"complete\", \"progress\": 100, \"video_url\": \"{{$json.video_url}}\"}",
+        "options": {}
+      },
+      "id": "update-complete",
+      "name": "Update Status Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2700, 3000],
+      "typeVersion": 4.4
+    }
+  ],
+  "connections": {
+    "Webhook - Video Request": {"main": [[{"node": "Get Input Data", "type": "main", "index": 0}]]},
+    "Get Input Data": {"main": [[{"node": "Set Status: Queued", "type": "main", "index": 0}]]},
+    "Set Status: Queued": {"main": [[{"node": "Respond OK", "type": "main", "index": 0}]]},
+    "Respond OK": {"main": [[{"node": "Generate Script", "type": "main", "index": 0}]]},
+    "Generate Script": {"main": [[{"node": "Complete Video", "type": "main", "index": 0}]]},
+    "Complete Video": {"main": [[{"node": "Update Status Complete", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"},
+  "versionId": "simple-v5",
+  "meta": {"templateCredsSetupCompleted": true},
+  "id": "videomill-simple-v5",
+  "tags": []
+}

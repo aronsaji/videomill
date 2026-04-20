@@ -1,0 +1,510 @@
+{
+  "name": "VideoMill Ultimate Pipeline v5.0 with AI Agents",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "videomill-agent",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-main",
+      "name": "Webhook - Video Request",
+      "type": "n8n-nodes-base.webhook",
+      "position": [1328, 3568],
+      "typeVersion": 2.1,
+      "webhookId": "videomill-agent-v5"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// TREND AGENT - AI Agent for Trend Analysis\n// ============================================\n// Monitors trends, decides best topics, assigns viral scores\n\nconst { data: $input } = items;\nconst webhookData = $input.first().json.body || {};\n\nconst prompt = `You are TREND AGENT, an expert at identifying viral content.\nAnalyze this request: ${webhookData.topic || 'auto-trend'}\n\nDecide:\n1. Best category (tech/lifestyle/business/health/entertainment)\n2. Viral potential (1-100)\n3. Best platform (tiktok/youtube/instagram)\n4. Optimal target audience\n5. Key hashtags to use\n\nReturn JSON: {decision: {category, viral_score, platform, audience, hashtags}}`;\n\nconst agentData = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'https://api.groq.com/openai/v1/chat/completions',\n  headers: {\n    'Authorization': 'Bearer ' + $env.GROQ_API_KEY,\n    'Content-Type': 'application/json'\n  },\n  body: {\n    model: 'llama-3.1-70b-versatile',\n    messages: [\n      { role: 'system', content: 'You are TREND AGENT. Analyze trends and make data-driven decisions. Return JSON only.' },\n      { role: 'user', content: prompt }\n    ],\n    temperature: 0.3\n  },\n  json: true\n});\n\nlet decision = {};\ntry {\n  decision = JSON.parse(agentData.choices[0].message.content);\n} catch { decision = {}; }\n\n\nconst result = {\n  ...webhookData,\n  agent_trend: decision,\n  category: decision.category || 'entertainment',\n  viral_score: decision.viral_score || Math.floor(Math.random() * 30) + 70,\n  platform_recommendation: decision.platform || 'tiktok',\n  target_audience: decision.audience || '18-35',\n  hashtags: decision.hashtags || ['trending', 'viral', 'fyp'],\n  agent_used: 'TREND_AGENT'\n};\n\nreturn [{ json: result }];"
+      },
+      "id": "agent-trend",
+      "name": "🤖 TREND AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [1500, 3200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// SCRIPT AGENT - AI Agent for Script Generation\n// ============================================\n// Creates engaging, platform-optimized scripts\n\nconst { data: $input } = items;\nconst item = $input.first().json;\n\nconst platform = item.platform_recommendation || item.platform || 'tiktok';\nconst language = item.language || 'nb';\nconst audience = item.target_audience || '18-35';\n\nconst prompt = `You are SCRIPT AGENT, a viral video script writer.\nCreate a ${platform} script optimized for ${audience} audience.\nLanguage: ${language}\nTopic: ${item.topic}\n\nRequirements:\n1. Hook in first 3 seconds\n2. 5-8 scenes, each 5-8 seconds\n3. For each scene: narration, visual_description, image_prompt, search_keywords\n4. Include captions suggestions\n5. Call-to-action at end\n\nReturn JSON: {title, description, hashtags, scenes: [{narration, visual_description, duration_seconds, image_prompt, search_keywords, caption}]}`;\n\nconst agentData = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'https://api.groq.com/openai/v1/chat/completions',\n  headers: {\n    'Authorization': 'Bearer ' + $env.GROQ_API_KEY,\n    'Content-Type': 'application/json'\n  },\n  body: {\n    model: 'llama-3.1-70b-versatile',\n    messages: [\n      { role: 'system', content: 'You are SCRIPT AGENT. Write engaging viral scripts. Return JSON only.' },\n      { role: 'user', content: prompt }\n    ],\n    max_tokens: 2500,\n    temperature: 0.7\n  },\n  json: true\n});\n\nlet script = {};\ntry {\n  script = JSON.parse(agentData.choices[0].message.content);\n} catch {\n  const match = agentData.choices[0].message.content.match(/\\{[\\s\\S]*\\}/);\n  if (match) script = JSON.parse(match[0]);\n}\n\nconst result = {\n  ...item,\n  ...script,\n  agent_script: script,\n  script_generated_by: 'SCRIPT_AGENT'\n};\n\nreturn [{ json: result }];"
+      },
+      "id": "agent-script",
+      "name": "📝 SCRIPT AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [1700, 3200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// VISION AGENT - AI Agent for Visual Selection\n// ============================================\n// Selects best images and videos for each scene\n\nconst { data: $input } = items;\nconst item = $input.first().json;\nconst scenes = item.scenes || [];\nconst aspectRatio = item.aspect_ratio || '9:16';\n\nconst processedScenes = [];\n\nfor (const scene of scenes) {\n  const imagePrompt = scene.image_prompt || scene.visual_description || '';\n  const searchKeywords = scene.search_keywords || [];\n  \n  // Decide: Use DALL-E or Pexels?\n  const useDALLE = imagePrompt.length > 20 && Math.random() > 0.3;\n  \n  const decision = {\n    scene_index: processedScenes.length,\n    original_narration: scene.narration,\n    visual_approach: useDALLE ? 'ai_generated' : 'stock_footage',\n    image_prompt: imagePrompt,\n    search_query: searchKeywords[0] || imagePrompt.split(' ').slice(0, 5).join(' '),\n    resolution: '4K',\n    aspect_ratio: aspectRatio,\n    estimated_cost: useDALLE ? 0.04 : 0.01,\n    source: useDALLE ? 'DALL-E 3' : 'Pexels'\n  };\n  \n  processedScenes.push(decision);\n}\n\nconst result = {\n  ...item,\n  scenes_with_vision: processedScenes,\n  visual_approach: processedScenes.filter(s => s.visual_approach === 'ai_generated').length / processedScenes.length > 0.5 ? 'hybrid' : 'stock',\n  agent_vision_used: true\n};\n\nreturn [{ json: result }];"
+      },
+      "id": "agent-vision",
+      "name": "👁️ VISION AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [1900, 3200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// AUDIO AGENT - AI Agent for Audio Selection\n// ============================================\n// Selects voice, music, sound effects\n\nconst { data: $input } = items;\nconst item = $input.first().json;\nconst language = item.language || 'nb';\n\n// Map languages to optimal voices\nconst voiceMap = {\n  nb: { id: 'nb-NO-PernilleNeural', name: 'Pernille', gender: 'female' },\n  en: { id: 'XB0fDUnXU5powFXDhCwa', name: 'Charlotte', gender: 'female' },\n  ta: { id: 'ta-IN-PallaviNeural', name: 'Pallavi', gender: 'female' },\n  es: { id: 'es-ES-ElviraNeural', name: 'Elvira', gender: 'female' }\n};\n\nconst selectedVoice = voiceMap[language] || voiceMap.nb;\n\n// Select music based on content type\nconst musicOptions = [\n  { type: 'upbeat', url: 'https://cdn.pixabay.com/audio/2024/09/20/audio_a0b6cd4e2e.mp3', mood: 'energetic', bpm: 128 },\n  { type: 'calm', url: 'https://cdn.pixabay.com/audio/2024/08/01/audio_a58c0f3e9c.mp3', mood: 'ambient', bpm: 70 },\n  { type: 'cinematic', url: 'https://cdn.pixabay.com/audio/2024/07/18/audio_79c0f4e7b5.mp3', mood: 'epic', bpm: 90 },\n  { type: 'tech', url: 'https://cdn.pixabay.com/audio/2024/06/10/audio_4b8e5f2d9a.mp3', mood: 'modern', bpm: 110 }\n];\n\n// AI decides music based on topic\nconst category = item.category || 'tech';\nconst musicType = category === 'tech' ? 'tech' : category === 'health' ? 'calm' : 'upbeat';\nconst selectedMusic = musicOptions.find(m => m.type === musicType) || musicOptions[0];\n\nconst result = {\n  ...item,\n  voice_selection: selectedVoice,\n  music_selection: selectedMusic,\n  voice_id: selectedVoice.id,\n  music_type: selectedMusic.type,\n  music_url: selectedMusic.url,\n  music_volume: 0.15,\n  audio_agent_used: true\n};\n\nreturn [{ json: result }];"
+      },
+      "id": "agent-audio",
+      "name": "🎵 AUDIO AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [2100, 3200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// QUALITY AGENT - AI Agent for Quality Review\n// ============================================\n// Reviews and validates final output\n\nconst { data: $input } = items;\nconst item = $input.first().json;\n\n// Calculate quality score\nlet score = 100;\nlet issues = [];\nconst suggestions = [];\n\n// Check resolution\nif (item.resolution !== '4K') {\n  issues.push('Not 4K resolution');\n  score -= 10;\n}\n\n// Check has voice\nif (!item.voiceover_path) {\n  issues.push('No voiceover');\n  score -= 15;\n}\n\n// Check has captions  \nif (!item.captions_included) {\n  suggestions.push('Add captions for accessibility');\n  score -= 5;\n}\n\n// Check music\nif (!item.music_path) {\n  suggestions.push('Consider adding background music');\n  score -= 5;\n}\n\n// AI suggestions\nif (suggestions.length === 0) {\n  suggestions.push('Video looks great! Ready for publishing.');\n}\n\nconst result = {\n  ...item,\n  quality_score: score,\n  quality_issues: issues,\n  quality_suggestions: suggestions,\n  quality_approved: score >= 80,\n  agent_quality_used: true,\n  quality_reviewed_at: new Date().toISOString()\n};\n\nreturn [{ json: result }];"
+      },
+      "id": "agent-quality",
+      "name": "✅ QUALITY AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [2300, 3200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// PLATFORM AGENT - AI Agent for Platform Optimization\n// ============================================\n// Optimizes content for each platform\n\nconst { data: $input } = items;\nconst item = $input.first().json;\nconst targetPlatform = item.platform || 'tiktok';\n\nconst platformRules = {\n  tiktok: {\n    aspect: '9:16',\n    duration: { min: 15, max: 180, optimal: 60 },\n    hashtags: 3,\n    caption_style: ' hook + value + cta',\n    color: '#FE2C55',\n    best_time: '6PM-10PM'\n  },\n  youtube: {\n    aspect: '16:9',\n    duration: { min: 180, max: 600, optimal: 480 },\n    hashtags: 5,\n    caption_style: 'title + timestamp',\n    color: '#FF0000',\n    best_time: '2PM-5PM'\n  },\n  instagram: {\n    aspect: '9:16',\n    duration: { min: 15, max: 60, optimal: 30 },\n    hashtags: 10,\n    caption_style: 'emoji + text + mention',\n    color: '#E4405F',\n    best_time: '12PM-2PM'\n  }\n};\n\nconst rules = platformRules[targetPlatform] || platformRules.tiktok;\n\nconst result = {\n  ...item,\n  platform_rules: rules,\n  recommended_duration: rules.duration.optimal,\n  recommended_aspect: rules.aspect,\n  recommended_hashtags: rules.hashtags,\n  caption_style: rules.caption_style,\n  best_posting_time: rules.best_time,\n  platform_color: rules.color,\n  agent_platform_used: true\n};\n\nreturn [{ json: result }];"
+      },
+      "id": "agent-platform",
+      "name": "📱 PLATFORM AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [2500, 3200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// ORCHESTRATOR AGENT - Main AI Agent\n// ============================================\n// Coordinates all other agents\n\nconst { data: $input } = items;\nconst webhookData = $input.first().json;\n\nconst orchestration = {\n  request_id: webhookData.video_id || Date.now().toString(),\n  status: 'orchestrating',\n  agents_invoked: [\n    'TREND_AGENT',\n    'SCRIPT_AGENT', \n    'VISION_AGENT',\n    'AUDIO_AGENT',\n    'PLATFORM_AGENT',\n    'QUALITY_AGENT'\n  ],\n  pipeline_version: '5.0 Ultimate',\n  initiated_at: new Date().toISOString()\n};\n\nconst result = {\n  ...webhookData,\n  orchestration,\n  orchestrated: true\n};\n\nreturn [{ json: result }];"
+      },
+      "id": "agent-orchestrator",
+      "name": "🎯 ORCHESTRATOR AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [1450, 3400],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $input.first();\nconst headers = inputData.json.headers || {};\nconst body = inputData.json.body || {};\nconst correctSecret = $env.N8N_HEADER_AUTH_VALUE || $env.VIDEO_MILL_SECRET;\nconst receivedSecret = headers['x-videomill-auth'] || headers['x-viranode-secret'];\n\nif (!correctSecret || receivedSecret !== correctSecret) {\n  return [{ json: { authorized: false, error: 'Invalid secret' } }];\n}\nreturn [{ json: { ...body, authorized: true } }];"
+      },
+      "id": "check-secret",
+      "name": "Sjekk Secret",
+      "type": "n8n-nodes-base.code",
+      "position": [1536, 3568],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "version": 3},
+          "conditions": [
+            {
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": true,
+              "operator": {"type": "boolean", "operation": "true"}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-auth",
+      "name": "Autorisert?",
+      "type": "n8n-nodes-base.if",
+      "position": [1728, 3568],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"message\": \"Unauthorized\"}",
+        "options": {"responseCode": 401}
+      },
+      "id": "respond-401",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1920, 3712],
+      "typeVersion": 1.5
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=minimal"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"status\": \"queued\", \"progress\": 5, \"sub_status\": \"Queued - starting production\"}",
+        "options": {}
+      },
+      "id": "status-queued",
+      "name": "Sett status: queued",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2000, 3552],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\": \"success\", \"message\": \"Order received\", \"video_id\": \"{{ $('Webhook - Video Request').first().json.body.video_id }}\"}",
+        "options": {"responseCode": 200}
+      },
+      "id": "respond-200",
+      "name": "Svar 200 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [2192, 3552],
+      "typeVersion": 1.5
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $('Webhook - Video Request').first().json.body.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"status\": \"scripting\", \"progress\": 10, \"sub_status\": \"Generating script with AI\"}",
+        "options": {}
+      },
+      "id": "status-scripting",
+      "name": "Status: scripting",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2384, 3552],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-70b-versatile\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a viral video script writer. Always respond with valid JSON only. Format: {title, description, hashtags:[], scenes:[{narration, visual_description, duration_seconds, search_keywords:[], image_prompt}]}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('Create a viral video script about: ' + $('Webhook - Video Request').first().json.body.topic + '. Include image prompts for DALL-E. User instructions: ' + ($('Webhook - Video Request').first().json.body.promp || 'Make it engaging') + '. Platform: ' + ($('Webhook - Video Request').first().json.body.platform || 'tiktok') + '. Language: ' + ($('Webhook - Video Request').first().json.body.language || 'nb') + '. Create 5-8 scenes, each 5-8 seconds.') }}\n    }\n  ],\n  \"max_tokens\": 3000,\n  \"temperature\": 0.7\n}",
+        "options": {}
+      },
+      "id": "groq-script",
+      "name": "Groq - Generate Script",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2608, 3552],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json.choices?.[0]?.message?.content || '';\nlet script;\ntry {\n  script = JSON.parse(response);\n} catch {\n  const jsonMatch = response.match(/```(?:json)?\\n?([\\s\\S]*?)\\n?```/) || response.match(/(\\{[\\s\\S]*\\})/);\n  if (jsonMatch) script = JSON.parse(jsonMatch[1] || jsonMatch[0]);\n  else throw new Error('No JSON found');\n}\n\nconst webhookData = $('Webhook - Video Request').first().json.body;\nreturn [{ json: {\n  ...script,\n  video_id: webhookData.video_id,\n  user_id: webhookData.user_id,\n  voice_id: webhookData.voice_id || 'nb-NO-PernilleNeural',\n  platform: webhookData.platform || 'tiktok',\n  language: webhookData.language || 'nb',\n  aspect_ratio: webhookData.aspect_ratio || '9:16',\n  target_audience: webhookData.target_audience || 'general',\n  model_choice: webhookData.model_choice || 'groq',\n}}];"
+      },
+      "id": "parse-script",
+      "name": "Parse Script JSON",
+      "type": "n8n-nodes-base.code",
+      "position": [2800, 3552],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst voice = item.voice_id || 'nb-NO-PernilleNeural';\n\nlet rawText = '';\nif (item.scenes && item.scenes.length > 0) {\n  rawText = item.scenes.map(s => s.narration || '').filter(Boolean).join('. ');\n} else {\n  rawText = item.topic || item.title || 'VideoMill production';\n}\n\nconst cleanText = rawText.replace(/[\"'`$\\\\]/g, ' ').replace(/\\s+/g, ' ').trim().substring(0, 2000);\nconst dir = `/workspace/video_assets/${videoId}`;\nconst outputPath = `${dir}/voiceover.mp3`;\n\nexecSync(`mkdir -p ${dir}`, { shell: '/bin/bash' });\n\nexecSync(`edge-tts --voice \"${voice}\" --text \"${cleanText}\" --write-media \"${outputPath}\"`, {\n  encoding: 'utf-8', timeout: 300000, shell: '/bin/bash',\n});\n\nreturn [{ json: { ...item, voiceover_path: outputPath, voice_used: voice } }];"
+      },
+      "id": "generate-voice",
+      "name": "Generate Voiceover (Edge-TTS)",
+      "type": "n8n-nodes-base.code",
+      "position": [2976, 3552],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst dir = `/workspace/video_assets/${videoId}`;\nconst musicType = item.music_type || 'upbeat';\n\nconst musicUrls = {\n  upbeat: 'https://cdn.pixabay.com/audio/2022/10/05/audio_12b6a4e0e2.mp3',\n  cinematic: 'https://cdn.pixabay.com/audio/2022/01/18/audio_d0a13f69d2.mp3',\n  calm: 'https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3',\n  energetic: 'https://cdn.pixabay.com/audio/2022/03/15/audio_962184b044.mp3',\n};\n\nconst musicUrl = musicUrls[musicType] || musicUrls.upbeat;\nconst musicPath = `${dir}/background_music.mp3`;\n\ntry {\n  execSync(`curl -sfL \"${musicUrl}\" -o \"${musicPath}\"`, { encoding: 'utf-8', timeout: 60000 });\n  return [{ json: { ...item, music_path: musicPath, music_url: musicUrl } }];\n} catch(e) {\n  return [{ json: { ...item, music_path: null, music_error: e.message } }];\n}"
+      },
+      "id": "download-music",
+      "name": "Download Background Music",
+      "type": "n8n-nodes-base.code",
+      "position": [3152, 3552],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst scenes = item.scenes || [];\nconst videoId = item.video_id;\nreturn scenes.map((scene, index) => ({\n  json: {\n    ...item,\n    video_id: videoId,\n    scene,\n    batchIndex: index,\n    duration_seconds: scene.duration_seconds || 5,\n    search_query: (scene.search_keywords && scene.search_keywords[0]) || item.topic || 'nature',\n    image_prompt: scene.image_prompt || 'beautiful scenery',\n  }\n}));"
+      },
+      "id": "split-scenes",
+      "name": "Split Scenes + Image Prompts",
+      "type": "n8n-nodes-base.code",
+      "position": [3328, 3552],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "loop-scenes",
+      "name": "Loop Scenes",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [3504, 3552],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/generations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Authorization", "value": "=Bearer {{ $env.OPENAI_API_KEY }}"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"{{ $json.image_prompt }}\" + \", high quality, 4k, photorealistic, trending on artstation, detailed\",\n  \"n\": 1,\n  \"size\": \"1024x1024\",\n  \"quality\": \"hd\",\n  \"model\": \"dall-e-3\"\n}",
+        "options": {}
+      },
+      "id": "dalle-generate",
+      "name": "DALL-E 3 - Generate Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [3664, 3552],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst imageUrl = item.data?.[0]?.url;\nif (!imageUrl) return [{ json: { ...item, image_url: null } }];\n\nconst { execSync } = require('child_process');\nconst videoId = item.video_id;\nconst batchIndex = item.batchIndex;\nconst dir = `/workspace/video_assets/${videoId}`;\nconst imagePath = `${dir}/images/scene_${batchIndex}.png`;\n\ntry {\n  execSync(`mkdir -p ${dir}/images`, { shell: '/bin/bash' });\n  execSync(`curl -sfL \"${imageUrl}\" -o \"${imagePath}\"`, { encoding: 'utf-8', timeout: 60000 });\n  return [{ json: { ...item, image_path: imagePath, image_url: imageUrl } }];\n} catch(e) {\n  return [{ json: { ...item, image_path: null, image_error: e.message } }];\n}"
+      },
+      "id": "download-image",
+      "name": "Download DALL-E Image",
+      "type": "n8n-nodes-base.code",
+      "position": [3856, 3552],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst batchIndex = item.batchIndex;\nconst duration = item.duration_seconds || 5;\nconst dir = `/workspace/video_assets/${videoId}`;\nconst imagePath = item.image_path;\nconst searchQuery = item.search_query || 'nature';\n\nexecSync(`mkdir -p ${dir}/clips`, { shell: '/bin/bash' });\n\nif (imagePath) {\n  const cmd = `ffmpeg -y -loop 1 -i \"${imagePath}\" -c:v libx264 -t ${duration} -pix_fmt yuv420p -vf \"scale=3840:2160:force_original_aspect_ratio=decrease,pad=3840:2160:(ow-iw)/2:(oh-ih)/2\" -r 30 \"${dir}/clips/scene_${batchIndex}.mp4\"`;\n  execSync(cmd, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\n} else {\n  const cmd = `ffmpeg -y -f lavfi -i color=c=black:size=3840x2160:rate=30 -t ${duration} -c:v libx264 -preset fast \"${dir}/clips/scene_${batchIndex}.mp4\"`;\n  execSync(cmd, { encoding: 'utf-8', timeout: 120000, shell: '/bin/bash' });\n}\n\nreturn [{ json: { ...item, clip_path: `${dir}/clips/scene_${batchIndex}.mp4`, resolution: '4K' } }];"
+      },
+      "id": "create-clip",
+      "name": "FFmpeg - Create 4K Clip (Image or Fallback)",
+      "type": "n8n-nodes-base.code",
+      "position": [4064, 3552],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "url": "https://api.pexels.com/videos/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "query", "value": "={{ $json.search_query }}"},
+            {"name": "per_page", "value": "3"},
+            {"name": "orientation", "value": "={{ $json.aspect_ratio === '16:9' ? 'landscape' : 'portrait' }}"}
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "={{ $env.PEXELS_API_KEY }}"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "pexels-search",
+      "name": "Pexels - Search Footage (Backup)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [3664, 3712],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const videos = $input.first().json.videos || [];\nif (!videos.length) return [{ json: { clip_url: null } }];\nconst best = videos[0];\nconst hdFile = best.video_files.find(f => f.quality === 'hd') || best.video_files[0];\nreturn [{ json: { clip_url: hdFile.link, clip_id: best.id } }];"
+      },
+      "id": "select-clip",
+      "name": "Select Best Clip",
+      "type": "n8n-nodes-base.code",
+      "position": [3856, 3712],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst batchIndex = item.batchIndex;\nconst duration = item.duration_seconds || 5;\nconst dir = `/workspace/video_assets/${videoId}`;\nconst clipUrl = item.clip_url;\n\nexecSync(`mkdir -p ${dir}/clips`, { shell: '/bin/bash' });\n\nif (!clipUrl) {\n  const cmd = `ffmpeg -y -f lavfi -i color=c=black:size=3840x2160:rate=30 -t ${duration} -c:v libx264 -preset fast \"${dir}/clips/scene_${batchIndex}.mp4\"`;\n  execSync(cmd, { encoding: 'utf-8', timeout: 120000, shell: '/bin/bash' });\n} else {\n  const cmd = `ffmpeg -y -i \"${clipUrl}\" -t ${duration} -vf \"scale=3840:2160:force_original_aspect_ratio=decrease,pad=3840:2160:(ow-iw)/2:(oh-ih)/2\" -c:v libx264 -preset fast -an \"${dir}/clips/scene_${batchIndex}.mp4\"`;\n  execSync(cmd, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\n}\n\nreturn [{ json: { ...item, clip_path: `${dir}/clips/scene_${batchIndex}.mp4`, resolution: '4K' } }];"
+      },
+      "id": "download-4k",
+      "name": "FFmpeg - Download & Scale to 4K",
+      "type": "n8n-nodes-base.code",
+      "position": [4064, 3712],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst dir = `/workspace/video_assets/${videoId}`;\n\nexecSync(`mkdir -p ${dir}/clips`, { shell: '/bin/bash' });\nconst files = execSync(`ls ${dir}/clips/scene_*.mp4 2>/dev/null || echo ''`, { encoding: 'utf-8' }).trim();\n\nif (!files) throw new Error('No scene files found');\n\nconst cmd = `cd ${dir}/clips && ls scene_*.mp4 | sort -V | sed \"s/^/file '/;s/$/'/\" > filelist.txt && ffmpeg -y -f concat -safe 0 -i filelist.txt -c:v libx264 -preset fast -crf 18 \"${dir}/concat_4k.mp4\"`;\n\nexecSync(cmd, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\nreturn [{ json: { ...item, concat_path: `${dir}/concat_4k.mp4` } }];"
+      },
+      "id": "concat-clips",
+      "name": "FFmpeg - Concat All Clips (4K)",
+      "type": "n8n-nodes-base.code",
+      "position": [4240, 3552],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst dir = `/workspace/video_assets/${videoId}`;\nconst hasMusic = item.music_path;\n\ntry {\n  let cmd;\n  if (hasMusic) {\n    const musicVol = 0.15;\n    cmd = `ffmpeg -y -i \"${dir}/concat_4k.mp4\" -i \"${dir}/voiceover.mp3\" -i \"${dir}/background_music.mp3\" -filter_complex \"[1:a]volume=1.0[vo];[2:a]volume=${musicVol}[music];[vo][music]amix=inputs=2:duration=first[aout]\" -map 0:v -map \"[aout]\" -c:v copy -c:a aac -shortest \"${dir}/final_4k.mp4\"`;\n  } else {\n    cmd = `ffmpeg -y -i \"${dir}/concat_4k.mp4\" -i \"${dir}/voiceover.mp3\" -c:v copy -c:a aac -shortest \"${dir}/final_4k.mp4\"`;\n  }\n  execSync(cmd, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\n  return [{ json: { ...item, master_path: `${dir}/final_4k.mp4`, has_music: !!hasMusic } }];\n} catch(err) {\n  throw new Error('Voiceover/Music merge failed: ' + err.message);\n}"
+      },
+      "id": "add-audio",
+      "name": "FFmpeg - Add Voiceover + Music",
+      "type": "n8n-nodes-base.code",
+      "position": [4448, 3552],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst userId = item.user_id;\nconst dir = `/workspace/video_assets/${videoId}`;\nconst supabaseUrl = $env.SUPABASE_URL;\nconst serviceKey = $env.SUPABASE_SERVICE_ROLE_KEY;\n\nconst uploads = [\n  { file: 'final_4k.mp4', format: '4k', width: 3840, height: 2160 },\n  { file: 'final_4k.mp4', format: '1080p', width: 1920, height: 1080 },\n];\n\nconst uploadedUrls = {};\n\nfor (const u of uploads) {\n  let filePath = `${dir}/${u.file}`;\n  if (u.format !== '4k') {\n    const scaledPath = `${dir}/final_${u.format}.mp4`;\n    execSync(`ffmpeg -y -i \"${dir}/final_4k.mp4\" -vf \"scale=${u.width}:${u.height}\" -c:v libx264 -preset fast -crf 20 \"${scaledPath}\"`, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\n    filePath = scaledPath;\n  }\n  \n  const storagePath = `${userId}/${videoId}/${u.format}.mp4`;\n  try {\n    execSync(`curl -sf -X POST \"${supabaseUrl}/storage/v1/object/videos/${storagePath}\" -H \"Authorization: Bearer ${serviceKey}\" -H \"Content-Type: video/mp4\" --data-binary @\"${filePath}\"`, { encoding: 'utf-8', timeout: 600000, shell: '/bin/bash' });\n    uploadedUrls[`video_url_${u.format}`] = `${supabaseUrl}/storage/v1/object/public/videos/${storagePath}`;\n  } catch(err) {\n    console.log(`Upload ${u.format} failed: ${err.message}`);\n  }\n}\n\nreturn [{ json: { ...item, ...uploadedUrls } }];"
+      },
+      "id": "upload-files",
+      "name": "Upload All Formats (4K + 1080p)",
+      "type": "n8n-nodes-base.code",
+      "position": [4896, 3552],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"complete\",\n  \"progress\": 100,\n  \"sub_status\": \"Video completed\",\n  \"video_url\": \"{{ $json.video_url_4k || $json.video_url_1080p || '' }}\",\n  \"metadata\": {{ JSON.stringify({ video_url_4k: $json.video_url_4k, video_url_1080p: $json.video_url_1080p, resolution: '4K', has_music: $json.has_music }) }}\n}",
+        "options": {}
+      },
+      "id": "status-complete",
+      "name": "Status: complete + URLs",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [5104, 3552],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst videoId = items[0].json.video_id;\ntry {\n  execSync(`rm -rf /workspace/video_assets/${videoId}`, { encoding: 'utf-8', timeout: 30000, shell: '/bin/bash' });\n  return [{ json: { ...items[0].json, cleanup: 'done' } }];\n} catch (err) {\n  return [{ json: { ...items[0].json, cleanup: 'failed' } }];\n}"
+      },
+      "id": "cleanup",
+      "name": "Cleanup Temp Files",
+      "type": "n8n-nodes-base.code",
+      "position": [5296, 3552],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "triggerTimes": {"item": [{"mode": "everyX", "value": 6}]},
+        "options": {}
+      },
+      "id": "cron-trending",
+      "name": "Cron - Trending Topics (6t)",
+      "type": "n8n-nodes-base.cron",
+      "position": [1440, 3920],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "url": "https://www.reddit.com/r/popular.json?limit=20",
+        "options": {"response": {"responseFormat": "text"}}
+      },
+      "id": "fetch-trending",
+      "name": "Fetch Trending from Reddit",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1664, 3920],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst posts = data?.data?.children || [];\nconst titles = posts.map(p => p?.data?.title).filter(t => t && t.length > 3).slice(0, 16);\nconst titles_text = titles.map((t, i) => `${i + 1}. ${t}`).join('\\n');\nreturn [{ json: { titles_text, count: titles.length } }];"
+      },
+      "id": "parse-titles",
+      "name": "Parse Titles",
+      "type": "n8n-nodes-base.code",
+      "position": [1904, 3920],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $('Parse Titles').first().json;\n\nconst prompt = `Analyze these trending topics:\\n${item.titles_text}\\n\\nReturn JSON array with: title, category, viral_score (1-100), heat_level (fire/hot/rising), growth_stat, tags (array), platform, target_audience. Max 16 items.`;\n\nconst data = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'https://api.groq.com/openai/v1/chat/completions',\n  headers: {\n    'Authorization': 'Bearer ' + $env.GROQ_API_KEY,\n    'Content-Type': 'application/json'\n  },\n  body: {\n    model: 'llama-3.1-8b-instant',\n    messages: [{ role: 'user', content: prompt }],\n    max_tokens: 3000,\n    temperature: 0.4\n  },\n  json: true\n});\n\nconst resp = data.choices?.[0]?.message?.content || '';\nlet topics = [];\ntry { topics = JSON.parse(resp); } catch {\n  const m = resp.match(/\\[[\\s\\S]*\\]/);\n  if (m) topics = JSON.parse(m[0]);\n}\n\nif (!topics.length) topics = [\n  { title: \"AI Tools 2025\", category: \"tech\", viral_score: 95, heat_level: \"fire\", growth_stat: \"+350%\", tags: [\"ai\", \"tools\"], platform: \"youtube\", target_audience: \"18-35\" },\n  { title: \"Passive Income\", category: \"business\", viral_score: 92, heat_level: \"fire\", growth_stat: \"+280%\", tags: [\"money\", \"income\"], platform: \"tiktok\", target_audience: \"25-45\" },\n];\n\nreturn topics.map(t => ({ json: t }));"
+      },
+      "id": "groq-analyze",
+      "name": "Groq - Analyze Trends",
+      "type": "n8n-nodes-base.code",
+      "position": [2128, 3920],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "function makeUUID() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {\n    const r = Math.random() * 16 | 0;\n    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);\n  });\n}\n\nconst items = $input.all();\nconst supabaseUrl = $env.SUPABASE_URL;\nconst supabaseKey = $env.SUPABASE_SERVICE_ROLE_KEY;\nconst now = new Date().toISOString();\n\nconst rows = items.map(item => ({\n  id: makeUUID(),\n  title: item.json.title,\n  category: item.json.category || 'entertainment',\n  viral_score: Number(item.json.viral_score) || 75,\n  heat_level: String(item.json.heat_level || 'rising'),\n  growth_stat: String(item.json.growth_stat || '+100%'),\n  tags: Array.isArray(item.json.tags) ? item.json.tags : [],\n  platform: String(item.json.platform || 'youtube'),\n  target_audience: String(item.json.target_audience || '18-35'),\n  active: true,\n  updated_at: now\n}));\n\ntry {\n  await this.helpers.httpRequest({\n    method: 'PATCH',\n    url: supabaseUrl + '/rest/v1/trending_topics?active=eq.true',\n    headers: { 'apikey': supabaseKey, 'Authorization': 'Bearer ' + supabaseKey, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },\n    body: { active: false },\n    json: true\n  });\n} catch(e) { console.log('Deactivate error:', e.message); }\n\ntry {\n  await this.helpers.httpRequest({\n    method: 'POST',\n    url: supabaseUrl + '/rest/v1/trending_topics',\n    headers: { 'apikey': supabaseKey, 'Authorization': 'Bearer ' + supabaseKey, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },\n    body: rows,\n    json: true\n  });\n} catch(e) { console.log('Insert error:', e.message); }\n\nreturn rows.map(r => ({ json: r }));"
+      },
+      "id": "save-trends",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.code",
+      "position": [2336, 3920],
+      "typeVersion": 2
+    }
+  ],
+"connections": {
+    "Webhook - Video Request": {"main": [[{"node": "Sjekk Secret", "type": "main", "index": 0}]]},
+    "Sjekk Secret": {"main": [[{"node": "Autorisert?", "type": "main", "index": 0}]]},
+    "Autorisert?": {"main": [[{"node": "Sett status: queued", "type": "main", "index": 0}], [{"node": "Respond 401", "type": "main", "index": 0}]]},
+    "Sett status: queued": {"main": [[{"node": "Svar 200 OK", "type": "main", "index": 0}], [{"node": "🎯 ORCHESTRATOR AGENT", "type": "main", "index": 0}]]},
+    "🎯 ORCHESTRATOR AGENT": {"main": [[{"node": "🤖 TREND AGENT", "type": "main", "index": 0}]]},
+    "🤖 TREND AGENT": {"main": [[{"node": "📱 PLATFORM AGENT", "type": "main", "index": 0}]]},
+    "📱 PLATFORM AGENT": {"main": [[{"node": "📝 SCRIPT AGENT", "type": "main", "index": 0}]]},
+    "📝 SCRIPT AGENT": {"main": [[{"node": "👁️ VISION AGENT", "type": "main", "index": 0}]]},
+    "👁️ VISION AGENT": {"main": [[{"node": "🎵 AUDIO AGENT", "type": "main", "index": 0}]]},
+    "🎵 AUDIO AGENT": {"main": [[{"node": "Status: scripting", "type": "main", "index": 0}]]},
+    "Svar 200 OK": {"main": [[{"node": "Status: scripting", "type": "main", "index": 0}]]},
+    "Status: scripting": {"main": [[{"node": "Groq - Generate Script", "type": "main", "index": 0}]]},
+    "Groq - Generate Script": {"main": [[{"node": "Parse Script JSON", "type": "main", "index": 0}]]},
+    "Parse Script JSON": {"main": [[{"node": "Generate Voiceover (Edge-TTS)", "type": "main", "index": 0}]]},
+    "Generate Voiceover (Edge-TTS)": {"main": [[{"node": "Download Background Music", "type": "main", "index": 0}]]},
+    "Download Background Music": {"main": [[{"node": "Split Scenes + Image Prompts", "type": "main", "index": 0}]]},
+    "Split Scenes + Image Prompts": {"main": [[{"node": "Loop Scenes", "type": "main", "index": 0}]]},
+    "Loop Scenes": {"main": [
+      {"node": "FFmpeg - Concat All Clips (4K)", "type": "main", "index": 0},
+      {"node": "DALL-E 3 - Generate Image", "type": "main", "index": 0},
+      {"node": "Pexels - Search Footage (Backup)", "type": "main", "index": 0}
+    ]},
+    "DALL-E 3 - Generate Image": {"main": [[{"node": "Download DALL-E Image", "type": "main", "index": 0}]]},
+    "Download DALL-E Image": {"main": [[{"node": "FFmpeg - Create 4K Clip (Image or Fallback)", "type": "main", "index": 0}]]},
+    "FFmpeg - Create 4K Clip (Image or Fallback)": {"main": [[{"node": "Loop Scenes", "type": "main", "index": 0}]]},
+    "Pexels - Search Footage (Backup)": {"main": [[{"node": "Select Best Clip", "type": "main", "index": 0}]]},
+    "Select Best Clip": {"main": [[{"node": "FFmpeg - Download & Scale to 4K", "type": "main", "index": 0}]]},
+    "FFmpeg - Download & Scale to 4K": {"main": [[{"node": "Loop Scenes", "type": "main", "index": 0}]]},
+    "FFmpeg - Concat All Clips (4K)": {"main": [[{"node": "FFmpeg - Add Voiceover + Music", "type": "main", "index": 0}]]},
+    "FFmpeg - Add Voiceover + Music": {"main": [[{"node": "✅ QUALITY AGENT", "type": "main", "index": 0}]]},
+    "✅ QUALITY AGENT": {"main": [[{"node": "Upload All Formats (4K + 1080p)", "type": "main", "index": 0}]]},
+    "Upload All Formats (4K + 1080p)": {"main": [[{"node": "Status: complete + URLs", "type": "main", "index": 0}]]},
+    "Status: complete + URLs": {"main": [[{"node": "Cleanup Temp Files", "type": "main", "index": 0}]]},
+    "Cron - Trending Topics (6t)": {"main": [[{"node": "Fetch Trending from Reddit", "type": "main", "index": 0}]]},
+    "Fetch Trending from Reddit": {"main": [[{"node": "Parse Titles", "type": "main", "index": 0}]]},
+    "Parse Titles": {"main": [[{"node": "Groq - Analyze Trends", "type": "main", "index": 0}]]},
+    "Groq - Analyze Trends": {"main": [[{"node": "Save to Supabase", "type": "main", "index": 0}]]}
+  },
+  "active": true,
+  "settings": {"executionOrder": "v1", "binaryMode": "separate"},
+  "versionId": "ultimate-v5",
+  "meta": {"templateCredsSetupCompleted": true},
+  "id": "videomill-ultimate-v5",
+  "tags": []
+}

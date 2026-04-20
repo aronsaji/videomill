@@ -1,0 +1,1088 @@
+{
+  "name": "VideoMill Complete Pipeline v5.0",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "viranode-generate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "93b862ce-0fae-4f1b-8a3c-47793f643cfb",
+      "name": "Webhook - Video Request",
+      "type": "n8n-nodes-base.webhook",
+      "position": [-128, -500],
+      "typeVersion": 2.1,
+      "webhookId": "77dc49c5-ea9c-446e-b048-42d23d9d2cd5",
+      "notes": "Mottar payload fra trigger-n8n Edge Function. Validerer X-VideoMill-Auth header."
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $input.first();\nconst headers = inputData.json.headers;\nconst body = inputData.json.body;\n\nconst correctSecret = $env.N8N_HEADER_AUTH_VALUE || $env.VIRANODE_SECRET;\nconst receivedSecret = headers['x-videomill-auth'] || headers['x-viranode-secret'];\n\nif (!correctSecret || receivedSecret !== correctSecret) {\n  return [{ json: { authorized: false, error: 'Feil hemmelig kode' } }];\n}\n\nreturn [{ json: { ...body, authorized: true } }];"
+      },
+      "id": "158c0280-2219-4faf-a70c-41140f490ff6",
+      "name": "Sjekk Secret",
+      "type": "n8n-nodes-base.code",
+      "position": [80, -500],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "da0c486c-513c-4cc0-af76-7ae03eef7f1f",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cbf5709e-4773-47b0-8724-e20defe80b1d",
+      "name": "Autorisert?",
+      "type": "n8n-nodes-base.if",
+      "position": [272, -500],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"message\": \"Feil passord, tilgang nektet\"}",
+        "options": { "responseCode": 401 }
+      },
+      "id": "9c47529b-f42c-4a21-b185-8db440679a95",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [464, -360],
+      "typeVersion": 1.5
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"status\": \"queued\", \"progress\": 5, \"sub_status\": \"I kø — starter produksjon\"}",
+        "options": {}
+      },
+      "id": "cb25c7b7-e6c5-4bd3-82bc-724aa4022da5",
+      "name": "Sett status: queued",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [544, -516],
+      "typeVersion": 4.4,
+      "notes": "Oppdaterer eksisterende video"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\": \"suksess\", \"message\": \"Bestilling mottatt — produksjon starter\", \"video_id\": \"{{ $('Webhook - Video Request').first().json.body.video_id }}\"}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "83f0de2b-de8a-46e6-a3d0-d5cecaabb9e2",
+      "name": "Svar 200 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [736, -516],
+      "typeVersion": 1.5
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $('Webhook - Video Request').first().json.body.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"status\": \"scripting\", \"progress\": 10, \"sub_status\": \"Genererer manus med AI\"}",
+        "options": {}
+      },
+      "id": "fbb40726-aaff-42cf-a1ce-13897d27ebdd",
+      "name": "Status: scripting",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [928, -516],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-8b-instant\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a viral short-form video script writer. Always respond with valid JSON only — no markdown, no code blocks. JSON must have: title, description, hashtags (array), scenes (array of objects with: narration, visual_description, duration_seconds, search_keywords array).\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify('Create a viral video script about: ' + $('Webhook - Video Request').first().json.body.topic + '. User instructions: ' + ($('Webhook - Video Request').first().json.body.promp || 'Make it engaging and short') + '. Platform: ' + ($('Webhook - Video Request').first().json.body.platform || 'tiktok') + '. Language: ' + ($('Webhook - Video Request').first().json.body.language || 'nb') + '. Target audience: ' + ($('Webhook - Video Request').first().json.body.target_audience || 'general') + '. Create 3-5 scenes, each 5-8 seconds.') }}\n    }\n  ],\n  \"max_tokens\": 2000,\n  \"temperature\": 0.7\n}",
+        "options": {}
+      },
+      "id": "3019de8e-6dca-4ad2-b96e-4c3640657e02",
+      "name": "Groq - Generate Script",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1152, -516],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json.choices[0].message.content;\ntry {\n  let script;\n  try { script = JSON.parse(response); }\n  catch {\n    const jsonMatch = response.match(/```(?:json)?\\n?([\\s\\S]*?)\\n?```/) || response.match(/(\\{[\\s\\S]*\\})/);\n    if (!jsonMatch) throw new Error('No JSON found');\n    script = JSON.parse(jsonMatch[1] || jsonMatch[0]);\n  }\n  const webhookData = $('Webhook - Video Request').first().json.body;\n  return [{ json: {\n    ...script,\n    video_id: webhookData.video_id,\n    user_id: webhookData.user_id,\n    voice_id: webhookData.voice_id || 'nb-NO-PernilleNeural',\n    platform: webhookData.platform || 'tiktok',\n    language: webhookData.language || 'nb',\n    aspect_ratio: webhookData.aspect_ratio || '9:16',\n    target_audience: webhookData.target_audience || 'general',\n  }}];\n} catch(e) { throw new Error('Parse script failed: ' + e.message); }"
+      },
+      "id": "43d59c46-154f-490e-9176-bd94824e9b5e",
+      "name": "Parse Script JSON",
+      "type": "n8n-nodes-base.code",
+      "position": [1344, -516],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst voiceId = item.voice_id || 'nb-NO-PernilleNeural';\nconst tts_voice = voiceId.endsWith('Neural') ? voiceId : voiceId + 'Neural';\nreturn [{ json: { ...item, tts_voice } }];"
+      },
+      "id": "cacd55ad-8d67-4544-9a1a-a35a4a5a2314",
+      "name": "Voice Map",
+      "type": "n8n-nodes-base.code",
+      "position": [1520, -516],
+      "typeVersion": 2,
+      "notes": "Mapper voice_id til edge-tts format"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst voice = item.tts_voice || 'nb-NO-PernilleNeural';\n\nlet rawText = '';\nif (item.scenes && Array.isArray(item.scenes) && item.scenes.length > 0) {\n  rawText = item.scenes.map(s => s.narration || '').filter(Boolean).join('. ');\n} else {\n  rawText = item.topic || item.title || 'VideoMill produksjon';\n}\n\nconst cleanText = rawText.replace(/[\"'`$\\]/g, ' ').replace(/\\s+/g, ' ').trim().substring(0, 2000);\n\nconst dir = `/workspace/video_assets/${videoId}`;\nconst outputPath = `${dir}/voiceover.mp3`;\n\ntry {\n  execSync(`mkdir -p ${dir}`, { shell: '/bin/bash' });\n  execSync(`edge-tts --voice \"${voice}\" --text \"${cleanText}\" --write-media \"${outputPath}\"`, {\n    encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\n  return [{ json: { ...item, voiceover_path: outputPath, engine_status: 'success', voice_used: voice } }];\n} catch (err) { throw new Error('Voiceover feilet: ' + err.message); }"
+      },
+      "id": "2a629026-0162-473a-ad90-a0c5cc88a6ea",
+      "name": "Generate Voiceover",
+      "type": "n8n-nodes-base.code",
+      "position": [1696, -516],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst scenes = item.scenes || [];\nconst videoId = item.video_id;\n\nreturn scenes.map((scene, index) => ({\n  json: {\n    ...item,\n    video_id: videoId,\n    scene,\n    batchIndex: index,\n    duration_seconds: scene.duration_seconds || 5,\n    search_query: (scene.search_keywords && scene.search_keywords[0]) || item.topic || 'nature',\n  }\n}));\n\n\nconst item = items[0].json;\nconst scenes = item.scenes || [];\nconst videoId = item.video_id || $('Webhook - Video Request').first().json.body.video_id;\n\nreturn scenes.map((scene, index) => ({\n  json: {\n    ...item,\n    video_id: videoId,\n    scene,\n    batchIndex: index,\n    duration_seconds: scene.duration_seconds || 5,\n    search_query: (scene.search_keywords && scene.search_keywords[0]) || item.topic || 'nature',\n  }\n}));"
+      },
+      "id": "7342c8e6-d3a9-49f0-81b7-2594e9d07914",
+      "name": "Split Scenes",
+      "type": "n8n-nodes-base.code",
+      "position": [1872, -516],
+      "typeVersion": 2
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "681bb435-da09-48df-9d76-1f4556009328",
+      "name": "Loop Scenes",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [2048, -516],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "url": "https://api.pexels.com/videos/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "query", "value": "={{ $json.search_query }}" },
+            { "name": "per_page", "value": "3" },
+            { "name": "orientation", "value": "={{ $json.aspect_ratio === '16:9' ? 'landscape' : 'portrait' }}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Authorization", "value": "={{ $env.PEXELS_API_KEY }}" }]
+        },
+        "options": {}
+      },
+      "id": "2e6651bc-6489-4415-ab98-f056d8cfb0bf",
+      "name": "Pexels - Search Footage",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2208, -404],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const videos = $input.first().json.videos || [];\nif (!videos.length) return [{ json: { clip_url: null } }];\nconst best = videos[0];\nconst hdFile = best.video_files.find(f => f.quality === 'hd') || best.video_files.find(f => f.quality === 'sd') || best.video_files[0];\nreturn [{ json: { clip_url: hdFile.link, clip_id: best.id } }];"
+      },
+      "id": "34717875-c721-4a62-a00d-1f229ef29fae",
+      "name": "Select Best Clip",
+      "type": "n8n-nodes-base.code",
+      "position": [2400, -404],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst clipUrl = item.clip_url;\nconst batchIndex = item.batchIndex || 0;\nconst duration = item.duration_seconds || 5;\nconst dir = `/workspace/video_assets/${videoId}`;\n\nexecSync(`mkdir -p ${dir}/clips`, { shell: '/bin/bash' });\n\nif (!clipUrl) {\n  const cmd = `ffmpeg -y -f lavfi -i color=c=black:size=1080x1920:rate=30 -t ${duration} -c:v libx264 -preset fast ${dir}/clips/scene_${batchIndex}.mp4`;\n  execSync(cmd, { encoding: 'utf-8', timeout: 120000, shell: '/bin/bash' });\n  return [{ json: { ...item, video_id: videoId, clip_path: `${dir}/clips/scene_${batchIndex}.mp4`, success: true } }];\n}\n\nconst cmd = `ffmpeg -y -i \"${clipUrl}\" -t ${duration} -c:v libx264 -preset fast -an \"${dir}/clips/scene_${batchIndex}.mp4\"`;\nexecSync(cmd, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\nreturn [{ json: { ...item, video_id: videoId, clip_path: `${dir}/clips/scene_${batchIndex}.mp4`, success: true } }];"
+      },
+      "id": "30a36600-31a1-4e63-88e6-8b8c48c6cea6",
+      "name": "FFmpeg - Download & Trim",
+      "type": "n8n-nodes-base.code",
+      "position": [2608, -404],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id || $('Webhook - Video Request').first().json.body.video_id;\nconst dir = `/workspace/video_assets/${videoId}`;\n\nexecSync(`mkdir -p ${dir}/clips`, { shell: '/bin/bash' });\n\nconst files = execSync(`ls ${dir}/clips/scene_*.mp4 2>/dev/null || echo ''`, { encoding: 'utf-8', shell: '/bin/bash' }).trim();\nif (!files) throw new Error('Ingen scene-filer funnet');\n\nconst cmd = `cd ${dir}/clips && ls scene_*.mp4 | sort -V | sed \"s/^/file '/;s/$/'/\" > filelist.txt && ffmpeg -y -f concat -safe 0 -i filelist.txt -c:v libx264 -preset fast \"${dir}/concat.mp4\"`;\nexecSync(cmd, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\nreturn [{ json: { ...item, video_id: videoId, concat_path: `${dir}/concat.mp4`, success: true } }];"
+      },
+      "id": "1171494b-070a-430d-9f50-1b588cb09aea",
+      "name": "FFmpeg - Concat All Clips",
+      "type": "n8n-nodes-base.code",
+      "position": [2784, -532],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst dir = `/workspace/video_assets/${videoId}`;\n\nexecSync(`mkdir -p ${dir}`, { shell: '/bin/bash' });\nexecSync(`ffmpeg -y -i \"${dir}/concat.mp4\" -i \"${dir}/voiceover.mp3\" -c:v copy -c:a aac -shortest \"${dir}/final_16x9.mp4\"`, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\nreturn [{ json: { ...item, video_id: videoId, master_path: `${dir}/final_16x9.mp4` } }];"
+      },
+      "id": "8ac985b8-7110-4f08-bbad-74f5498c6580",
+      "name": "FFmpeg - Add Voiceover",
+      "type": "n8n-nodes-base.code",
+      "position": [2992, -532],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst dir = `/workspace/video_assets/${videoId}`;\nconst ratio = item.aspect_ratio || '9:16';\n\nif (ratio === '9:16' || ratio !== '16:9') {\n  execSync(`ffmpeg -y -i \"${dir}/final_16x9.mp4\" -vf \"scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1\" \"${dir}/final_9x16.mp4\"`, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\n}\nexecSync(`ffmpeg -y -i \"${dir}/final_16x9.mp4\" -vf \"scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2,setsar=1\" \"${dir}/final_1x1.mp4\"`, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\nreturn [{ json: { ...item, video_id: videoId, success: true } }];"
+      },
+      "id": "55a9b29e-a7c8-4764-9e97-f834fe501a4a",
+      "name": "FFmpeg - Multi-Format Scale",
+      "type": "n8n-nodes-base.code",
+      "position": [3216, -532],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst userId = item.user_id;\nconst dir = `/workspace/video_assets/${videoId}`;\nconst supabaseUrl = $env.SUPABASE_URL;\nconst serviceKey = $env.SUPABASE_SERVICE_ROLE_KEY;\n\nconst uploads = [\n  { file: 'final_16x9.mp4', format: '16x9' },\n  { file: 'final_9x16.mp4', format: '9x16' },\n  { file: 'final_1x1.mp4', format: '1x1' },\n];\n\nconst uploadedUrls = {};\nfor (const u of uploads) {\n  const filePath = `${dir}/${u.file}`;\n  const storagePath = `${userId}/${videoId}/${u.file}`;\n  try {\n    execSync(`curl -sf -X POST \"${supabaseUrl}/storage/v1/object/videos/${storagePath}\" -H \"Authorization: Bearer ${serviceKey}\" -H \"Content-Type: video/mp4\" --data-binary @\"${filePath}\"`, { encoding: 'utf-8', timeout: 600000, shell: '/bin/bash' });\n    uploadedUrls[`video_url_${u.format.replace(':','x')}`] = `${supabaseUrl}/storage/v1/object/public/videos/${storagePath}`;\n  } catch(err) { console.log('Upload failed: ' + err.message); }\n}\nreturn [{ json: { ...item, video_id: videoId, user_id: userId, ...uploadedUrls } }];"
+      },
+      "id": "cfeffff3-d852-4920-8e74-d1a30f754dbe",
+      "name": "Upload All Formats",
+      "type": "n8n-nodes-base.code",
+      "position": [3440, -532],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"complete\",\n  \"progress\": 100,\n  \"sub_status\": \"Video ferdigstilt\",\n  \"video_url\": \"{{ $json.video_url_16x9 || $json.video_url_9x16 || '' }}\",\n  \"metadata\": {{ JSON.stringify({ video_url_16x9: $json.video_url_16x9, video_url_9x16: $json.video_url_9x16, video_url_1x1: $json.video_url_1x1 }) }}\n}",
+        "options": {}
+      },
+      "id": "e1d18569-ac3d-41ab-8a8d-0416ca539129",
+      "name": "Status: complete + URLs",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [3640, -532],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst videoId = items[0].json.video_id;\ntry {\n  execSync(`rm -rf /workspace/video_assets/${videoId}`, { encoding: 'utf-8', timeout: 30000, shell: '/bin/bash' });\n  return [{ json: { ...items[0].json, cleanup: 'done' } }];\n} catch (err) { return [{ json: { ...items[0].json, cleanup: 'failed' } }]; }"
+      },
+      "id": "7261a7d9-eabd-4e68-ac45-6fd677cc54e3",
+      "name": "Cleanup Temp Files",
+      "type": "n8n-nodes-base.code",
+      "position": [3840, -532],
+      "typeVersion": 2
+    },
+
+    {
+      "parameters": {
+        "triggerTimes": { "item": [{ "mode": "everyX", "value": 6, "unit": "hours" }] }
+      },
+      "id": "60e570dc-7211-44f0-b925-ae6adbfd2bb2",
+      "name": "Cron - Trending Topics (6t)",
+      "type": "n8n-nodes-base.cron",
+      "position": [64, -180],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OLLAMA_URL }}/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\": \"llama3\", \"prompt\": \"Analyze trending topics for viral short-form video content. Return 16 topics as JSON array with: {\\\"title\\\": string, \\\"category\\\": string, \\\"heat\\\": string, \\\"reason\\\": string, \\\"tags\\\": string[], \\\"rank\\\": number, \\\"platform\\\": string, \\\"target_audience\\\": string}. Return ONLY JSON array.\", \"stream\": false}",
+        "options": {}
+      },
+      "id": "771dfce8-87bd-4a2e-ba16-74e1a5ad3672",
+      "name": "Ollama - Analyze Trends",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [272, -180],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json.response || '';\nlet topics = [];\ntry { topics = JSON.parse(resp); }\ncatch { try { const match = resp.match(/\\[[\\s\\S]*\\]/); if (match) topics = JSON.parse(match[0]); } catch(e) { throw new Error('Parse failed'); } }\n\nconst platformByCategory = { tech: 'youtube', motivation: 'tiktok', history: 'youtube', science: 'youtube', crime: 'tiktok', finance: 'youtube', health: 'instagram', mystery: 'tiktok' };\n\nreturn topics.map(t => ({ json: {\n  title: t.title || 'Ukjent',\n  category: t.category || 'general',\n  viral_score: t.rank || Math.floor(Math.random() * 40 + 55),\n  heat_level: t.heat || 'rising',\n  growth_stat: t.reason || null,\n  tags: Array.isArray(t.tags) ? t.tags : [],\n  platform: t.platform || platformByCategory[t.category] || 'youtube',\n  target_audience: t.target_audience || 'General audience',\n} }));"
+      },
+      "id": "4abf0900-e33a-4eb4-a41b-8c6ed770afb2",
+      "name": "Parse Trends → DB-format",
+      "type": "n8n-nodes-base.code",
+      "position": [464, -180],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/trending_topics?active=eq.true",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"active\": false}",
+        "options": {}
+      },
+      "id": "a6e63646-b85f-4fcd-8046-6aaef5d00b24",
+      "name": "Deaktiver gamle trender",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [672, -180],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/trending_topics",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($input.all().map(i => ({...i.json, active: true, updated_at: new Date().toISOString()}))) }}",
+        "options": {}
+      },
+      "id": "8bef0363-57ff-4104-9725-546984e56686",
+      "name": "Insert nye trender",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [864, -180],
+      "typeVersion": 4.4
+    },
+
+    {
+      "parameters": {
+        "triggerTimes": { "item": [{ "hour": 3 }] }
+      },
+      "id": "d2a415c6-2238-4677-b3c8-7d308701d9cd",
+      "name": "Cron - Analytics (03:00)",
+      "type": "n8n-nodes-base.cron",
+      "position": [32, 100],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?select=status,count",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Prefer", "value": "count=exact" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ddbf000c-b945-42af-aa64-627b25c740ae",
+      "name": "Hent video-statistikk",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [256, 100],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": { "jsCode": "console.log('Analytics:', JSON.stringify($input.first().json)); return $input.all();" },
+      "id": "24f37b7e-5ed7-423c-ae8f-4e20a98cd80d",
+      "name": "Log Analytics",
+      "type": "n8n-nodes-base.code",
+      "position": [480, 100],
+      "typeVersion": 2
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "viranode-retry",
+        "options": {}
+      },
+      "id": "07c48330-fe46-4208-bed5-e111f0de7c30",
+      "name": "Webhook - Retry Video",
+      "type": "n8n-nodes-base.webhook",
+      "position": [64, 400],
+      "typeVersion": 2.1,
+      "webhookId": "1f430329-e7d0-4b0f-867e-b9a32bcf8681"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.headers['x-videomill-auth'] }}",
+              "rightValue": "={{ $env.N8N_HEADER_AUTH_VALUE }}",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "85ce1659-35f1-430e-98f8-bcc3faec5f76",
+      "name": "Valider Retry Secret",
+      "type": "n8n-nodes-base.if",
+      "position": [272, 400],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.body.retry_video_id }}&select=*",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6b67be73-7207-4a4d-bbf4-84a690de14d4",
+      "name": "Hent original video",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [464, 400],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json[0].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"status\": \"queued\", \"progress\": 0, \"sub_status\": \"Retry startet\"}",
+        "options": {}
+      },
+      "id": "12e32fff-1050-4291-ba0a-29acf33f4b24",
+      "name": "Resett status: queued",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [672, 400],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-VideoMill-Auth", "value": "={{ $env.N8N_HEADER_AUTH_VALUE }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ video_id: $json[0].id, user_id: $json[0].user_id, topic: $json[0].topic || $json[0].title, promp: $json[0].promp || '', voice_id: $json[0].voice_id || 'nb-NO-Pernille', platform: $json[0].platform || 'tiktok', aspect_ratio: $json[0].aspect_ratio || '9:16', language: $json[0].language || 'nb', target_audience: $json[0].target_audience || 'general', action: 'retry' }) }}",
+        "options": {}
+      },
+      "id": "65a73b11-ee01-4bb9-81ba-de504af6326d",
+      "name": "Re-trigger Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [864, 400],
+      "typeVersion": 4.4
+    },
+
+    {
+      "parameters": {
+        "triggerTimes": { "item": [{ "mode": "everyX", "value": 1, "unit": "days" }] }
+      },
+      "id": "coo-trigger-001",
+      "name": "COO Cron - Daglig",
+      "type": "n8n-nodes-base.cron",
+      "position": [1600, -900],
+      "typeVersion": 1,
+      "notes": "COO Agent kjører daglig for å analysere trender og operasjoner"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nreturn [{ json: { ...item, agent_role: 'COO', agent_task: 'daily_operations_review' } }];"
+      },
+      "id": "coo-prepare-001",
+      "name": "COO forbered prompt",
+      "type": "n8n-nodes-base.code",
+      "position": [1800, -900],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-70b-versatile\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are the COO (Chief Operating Officer) of a viral video production company. Analyze operational data and trends. Provide actionable insights for improving efficiency, production speed, and content quality. Always respond with valid JSON: {\\\"report\\\": string, \\\"recommendations\\\": string[], \\\"alerts\\\": string[], \\\"kpis\\\": object}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze the following operational data and provide a COO report: {{ JSON.stringify($input.first().json) }}\"\n    }\n  ],\n  \"max_tokens\": 2000,\n  \"temperature\": 0.5\n}",
+        "options": {}
+      },
+      "id": "coo-agent-001",
+      "name": "COO AI Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2000, -900],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json.choices[0].message.content;\nlet report;\ntry { report = JSON.parse(response); }\ncatch { const match = response.match(/(\\{[\\s\\S]*\\})/); if (match) report = JSON.parse(match[1]); else report = { report: response, recommendations: [], alerts: [] }; }\nreturn [{ json: { ...report, agent: 'COO', timestamp: new Date().toISOString() } }];"
+      },
+      "id": "coo-parse-001",
+      "name": "COO parse svar",
+      "type": "n8n-nodes-base.code",
+      "position": [2200, -900],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/agent_reports",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ...$json, created_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "coo-save-001",
+      "name": "COO lagre rapport",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2400, -900],
+      "typeVersion": 4.4,
+      "notes": "Lagrer COO-rapport til Supabase"
+    },
+
+    {
+      "parameters": {
+        "triggerTimes": { "item": [{ "hour": 2 }] }
+      },
+      "id": "cfo-trigger-001",
+      "name": "CFO Cron - Daglig",
+      "type": "n8n-nodes-base.cron",
+      "position": [1600, -700],
+      "typeVersion": 1,
+      "notes": "CFO Agent kjører daglig for økonomianalyse"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?select=id,topic,platform,status,created_at,metadata",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cfo-fetch-001",
+      "name": "CFO hent data",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1800, -700],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nreturn [{ json: { ...item, agent_role: 'CFO', agent_task: 'financial_analysis' } }];"
+      },
+      "id": "cfo-prepare-001",
+      "name": "CFO forbered prompt",
+      "type": "n8n-nodes-base.code",
+      "position": [2000, -700],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-70b-versatile\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are the CFO (Chief Financial Officer). Analyze video production costs, ROI, and provide financial recommendations. Return JSON: {\\\"financial_summary\\\": string, \\\"cost_analysis\\\": object, \\\"roi_metrics\\\": object, \\\"recommendations\\\": string[], \\\"budget_suggestions\\\": string[]}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this financial data and provide CFO insights: {{ JSON.stringify($input.first().json) }}\"\n    }\n  ],\n  \"max_tokens\": 2000,\n  \"temperature\": 0.5\n}",
+        "options": {}
+      },
+      "id": "cfo-agent-001",
+      "name": "CFO AI Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2200, -700],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json.choices[0].message.content;\nlet report;\ntry { report = JSON.parse(response); }\ncatch { const match = response.match(/(\\{[\\s\\S]*\\})/); if (match) report = JSON.parse(match[1]); else report = { financial_summary: response }; }\nreturn [{ json: { ...report, agent: 'CFO', timestamp: new Date().toISOString() } }];"
+      },
+      "id": "cfo-parse-001",
+      "name": "CFO parse svar",
+      "type": "n8n-nodes-base.code",
+      "position": [2400, -700],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/agent_reports",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ...$json, created_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "cfo-save-001",
+      "name": "CFO lagre rapport",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2600, -700],
+      "typeVersion": 4.4
+    },
+
+    {
+      "parameters": {
+        "triggerTimes": { "item": [{ "mode": "everyX", "value": 4, "unit": "hours" }] }
+      },
+      "id": "marketing-trigger-001",
+      "name": "Marketing Cron (4t)",
+      "type": "n8n-nodes-base.cron",
+      "position": [1600, -500],
+      "typeVersion": 1,
+      "notes": "Marketing Agent kjører hver 4. time for trendanalyse"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/trending_topics?active=eq.true&limit=10",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "marketing-fetch-001",
+      "name": "Marketing hent trender",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1800, -500],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const trends = $input.all().map(i => i.json).filter(t => t.active);\nreturn [{ json: { trends, agent_role: 'Marketing', agent_task: 'trend_analysis' } }];"
+      },
+      "id": "marketing-prepare-001",
+      "name": "Marketing forbered",
+      "type": "n8n-nodes-base.code",
+      "position": [2000, -500],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-70b-versatile\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are the Marketing Director. Analyze trending topics and recommend content strategies. Return JSON: {\\\"content_strategy\\\": string, \\\"audience_insights\\\": string[], \\\"platform_recommendations\\\": string[], \\\"hashtag_suggestions\\\": string[], \\\"posting_schedule\\\": object, \\\"viral_tips\\\": string[]}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze these trends and provide marketing strategy: {{ JSON.stringify($input.first().json) }}\"\n    }\n  ],\n  \"max_tokens\": 2000,\n  \"temperature\": 0.6\n}",
+        "options": {}
+      },
+      "id": "marketing-agent-001",
+      "name": "Marketing AI Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2200, -500],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json.choices[0].message.content;\nlet report;\ntry { report = JSON.parse(response); }\ncatch { const match = response.match(/(\\{[\\s\\S]*\\})/); if (match) report = JSON.parse(match[1]); else report = { content_strategy: response }; }\nreturn [{ json: { ...report, agent: 'Marketing', timestamp: new Date().toISOString() } }];"
+      },
+      "id": "marketing-parse-001",
+      "name": "Marketing parse svar",
+      "type": "n8n-nodes-base.code",
+      "position": [2400, -500],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/agent_reports",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ...$json, created_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "marketing-save-001",
+      "name": "Marketing lagre",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2600, -500],
+      "typeVersion": 4.4
+    },
+
+    {
+      "parameters": {
+        "triggerTimes": { "item": [{ "hour": 1 }] }
+      },
+      "id": "ciso-trigger-001",
+      "name": "CISO Cron ( hourly)",
+      "type": "n8n-nodes-base.cron",
+      "position": [1600, -300],
+      "typeVersion": 1,
+      "notes": "CISO Agent kjører hver time for sikkerhetsovervåking"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?select=id,status,created_at&order=created_at.desc&limit=50",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ciso-fetch-001",
+      "name": "CISO hent logger",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1800, -300],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const videos = $input.all().map(i => i.json);\nconst item = items[0].json;\nreturn [{ json: { ...item, agent_role: 'CISO', audit_data: videos, agent_task: 'security_audit' } }];"
+      },
+      "id": "ciso-prepare-001",
+      "name": "CISO forbered",
+      "type": "n8n-nodes-base.code",
+      "position": [2000, -300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-70b-versatile\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are the CISO (Chief Information Security Officer). Perform security audit, check compliance (ISO 27001), analyze access patterns, and report security metrics. Return JSON: {\\\"security_status\\\": string, \\\"compliance_check\\\": object, \\\"anomalies\\\": string[], \\\"access_report\\\": object, \\\"recommendations\\\": string[], \\\"risk_level\\\": string}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Perform security audit on this data: {{ JSON.stringify($input.first().json) }}\"\n    }\n  ],\n  \"max_tokens\": 2000,\n  \"temperature\": 0.3\n}",
+        "options": {}
+      },
+      "id": "ciso-agent-001",
+      "name": "CISO AI Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2200, -300],
+      "typeVersion": 4.4,
+      "notes": "Sikkerhetsagent - ISO 27001 compliance"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json.choices[0].message.content;\nlet report;\ntry { report = JSON.parse(response); }\ncatch { const match = response.match(/(\\{[\\s\\S]*\\})/); if (match) report = JSON.parse(match[1]); else report = { security_status: response }; }\nreturn [{ json: { ...report, agent: 'CISO', timestamp: new Date().toISOString() } }];"
+      },
+      "id": "ciso-parse-001",
+      "name": "CISO parse svar",
+      "type": "n8n-nodes-base.code",
+      "position": [2400, -300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/agent_reports",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ...$json, created_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "ciso-save-001",
+      "name": "CISO lagre",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2600, -300],
+      "typeVersion": 4.4
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "social-response",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "social-webhook-001",
+      "name": "Webhook - Social Response",
+      "type": "n8n-nodes-base.webhook",
+      "position": [3400, -600],
+      "typeVersion": 2.1,
+      "notes": "Webhooks for incoming social media messages - SEPARATE agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $input.first().json.body;\nreturn [{ json: {\n  message: payload.message || '',\n  platform: payload.platform || 'generic',\n  from_user: payload.from_user || 'unknown',\n  sentiment: payload.sentiment || 'neutral',\n  agent_role: 'SocialResponse',\n  action: 'generate_response'\n} }];"
+      },
+      "id": "social-prepare-001",
+      "name": "Social parse melding",
+      "type": "n8n-nodes-base.code",
+      "position": [3600, -600],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst sentiment = item.sentiment || 'neutral';\nlet tone = 'professional';\nif (sentiment === 'negative') tone = 'empathetic and apologetic';\nif (sentiment === 'positive') tone = 'enthusiastic and grateful';\n\nconst prompt = `You are a social media response agent. Generate a ${tone} response to this message: \"${item.message}\". Platform: ${item.platform}. Keep it under 280 characters for Twitter, natural for others. Sign as VideoMill.`;\n\nreturn [{ json: { ...item, response_prompt: prompt } }];"
+      },
+      "id": "social-prompt-001",
+      "name": "Social build prompt",
+      "type": "n8n-nodes-base.code",
+      "position": [3800, -600],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-8b-instant\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a social media response agent. Generate natural, engaging responses to user messages. Be helpful, friendly, and concise. Sign as VideoMill when appropriate.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.response_prompt }}\"\n    }\n  ],\n  \"max_tokens\": 300,\n  \"temperature\": 0.7\n}",
+        "options": {}
+      },
+      "id": "social-agent-001",
+      "name": "Social Response Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [4000, -600],
+      "typeVersion": 4.4,
+      "notes": "AI Agent for å svare på sosiale medier - SEPARAT som ba brukeren om"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/social_responses",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $input.first().json.choices[0].message.content, platform: $json.platform, from_user: $json.from_user, original_message: $json.message, created_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "social-save-001",
+      "name": "Social lagre respons",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [4200, -600],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'success', response: $('Social Response Agent').first().json.choices[0].message.content }) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "social-respond-001",
+      "name": "Social svar 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [4400, -600],
+      "typeVersion": 1.5
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Video Request": { "main": [[{ "node": "Sjekk Secret", "type": "main", "index": 0 }]] },
+    "Sjekk Secret": { "main": [[{ "node": "Autorisert?", "type": "main", "index": 0 }]] },
+    "Autorisert?": {
+      "main": [
+        [{ "node": "Sett status: queued", "type": "main", "index": 0 }],
+        [{ "node": "Respond 401", "type": "main", "index": 0 }]
+      ]
+    },
+    "Sett status: queued": { "main": [[{ "node": "Svar 200 OK", "type": "main", "index": 0 }]] },
+    "Svar 200 OK": { "main": [[{ "node": "Status: scripting", "type": "main", "index": 0 }]] },
+    "Status: scripting": { "main": [[{ "node": "Groq - Generate Script", "type": "main", "index": 0 }]] },
+    "Groq - Generate Script": { "main": [[{ "node": "Parse Script JSON", "type": "main", "index": 0 }]] },
+    "Parse Script JSON": { "main": [[{ "node": "Voice Map", "type": "main", "index": 0 }]] },
+    "Voice Map": { "main": [[{ "node": "Generate Voiceover", "type": "main", "index": 0 }]] },
+    "Generate Voiceover": { "main": [[{ "node": "Split Scenes", "type": "main", "index": 0 }]] },
+    "Split Scenes": { "main": [[{ "node": "Loop Scenes", "type": "main", "index": 0 }]] },
+    "Loop Scenes": {
+      "main": [
+        [{ "node": "FFmpeg - Concat All Clips", "type": "main", "index": 0 }],
+        [{ "node": "Pexels - Search Footage", "type": "main", "index": 0 }]
+      ]
+    },
+    "Pexels - Search Footage": { "main": [[{ "node": "Select Best Clip", "type": "main", "index": 0 }]] },
+    "Select Best Clip": { "main": [[{ "node": "FFmpeg - Download & Trim", "type": "main", "index": 0 }]] },
+    "FFmpeg - Download & Trim": { "main": [[{ "node": "Loop Scenes", "type": "main", "index": 0 }]] },
+    "FFmpeg - Concat All Clips": { "main": [[{ "node": "FFmpeg - Add Voiceover", "type": "main", "index": 0 }]] },
+    "FFmpeg - Add Voiceover": { "main": [[{ "node": "FFmpeg - Multi-Format Scale", "type": "main", "index": 0 }]] },
+    "FFmpeg - Multi-Format Scale": { "main": [[{ "node": "Upload All Formats", "type": "main", "index": 0 }]] },
+    "Upload All Formats": { "main": [[{ "node": "Status: complete + URLs", "type": "main", "index": 0 }]] },
+    "Status: complete + URLs": { "main": [[{ "node": "Cleanup Temp Files", "type": "main", "index": 0 }]] },
+
+    "Cron - Trending Topics (6t)": { "main": [[{ "node": "Ollama - Analyze Trends", "type": "main", "index": 0 }]] },
+    "Ollama - Analyze Trends": { "main": [[{ "node": "Parse Trends → DB-format", "type": "main", "index": 0 }]] },
+    "Parse Trends → DB-format": { "main": [[{ "node": "Deaktiver gamle trender", "type": "main", "index": 0 }]] },
+    "Deaktiver gamle trender": { "main": [[{ "node": "Insert nye trender", "type": "main", "index": 0 }]] },
+
+    "Cron - Analytics (03:00)": { "main": [[{ "node": "Hent video-statistikk", "type": "main", "index": 0 }]] },
+    "Hent video-statistikk": { "main": [[{ "node": "Log Analytics", "type": "main", "index": 0 }]] },
+
+    "Webhook - Retry Video": { "main": [[{ "node": "Valider Retry Secret", "type": "main", "index": 0 }]] },
+    "Valider Retry Secret": { "main": [[{ "node": "Hent original video", "type": "main", "index": 0 }]] },
+    "Hent original video": { "main": [[{ "node": "Resett status: queued", "type": "main", "index": 0 }]] },
+    "Resett status: queued": { "main": [[{ "node": "Re-trigger Pipeline", "type": "main", "index": 0 }]] },
+
+    "COO Cron - Daglig": { "main": [[{ "node": "COO forbered prompt", "type": "main", "index": 0 }]] },
+    "COO forbered prompt": { "main": [[{ "node": "COO AI Agent", "type": "main", "index": 0 }]] },
+    "COO AI Agent": { "main": [[{ "node": "COO parse svar", "type": "main", "index": 0 }]] },
+    "COO parse svar": { "main": [[{ "node": "COO lagre rapport", "type": "main", "index": 0 }]] },
+
+    "CFO Cron - Daglig": { "main": [[{ "node": "CFO hent data", "type": "main", "index": 0 }]] },
+    "CFO hent data": { "main": [[{ "node": "CFO forbered prompt", "type": "main", "index": 0 }]] },
+    "CFO forbered prompt": { "main": [[{ "node": "CFO AI Agent", "type": "main", "index": 0 }]] },
+    "CFO AI Agent": { "main": [[{ "node": "CFO parse svar", "type": "main", "index": 0 }]] },
+    "CFO parse svar": { "main": [[{ "node": "CFO lagre rapport", "type": "main", "index": 0 }]] },
+
+    "Marketing Cron (4t)": { "main": [[{ "node": "Marketing hent trender", "type": "main", "index": 0 }]] },
+    "Marketing hent trender": { "main": [[{ "node": "Marketing forbered", "type": "main", "index": 0 }]] },
+    "Marketing forbered": { "main": [[{ "node": "Marketing AI Agent", "type": "main", "index": 0 }]] },
+    "Marketing AI Agent": { "main": [[{ "node": "Marketing parse svar", "type": "main", "index": 0 }]] },
+    "Marketing parse svar": { "main": [[{ "node": "Marketing lagre", "type": "main", "index": 0 }]] },
+
+    "CISO Cron ( hourly)": { "main": [[{ "node": "CISO hent logger", "type": "main", "index": 0 }]] },
+    "CISO hent logger": { "main": [[{ "node": "CISO forbered", "type": "main", "index": 0 }]] },
+    "CISO forbered": { "main": [[{ "node": "CISO AI Agent", "type": "main", "index": 0 }]] },
+    "CISO AI Agent": { "main": [[{ "node": "CISO parse svar", "type": "main", "index": 0 }]] },
+    "CISO parse svar": { "main": [[{ "node": "CISO lagre", "type": "main", "index": 0 }]] },
+
+    "Webhook - Social Response": { "main": [[{ "node": "Social parse melding", "type": "main", "index": 0 }]] },
+    "Social parse melding": { "main": [[{ "node": "Social build prompt", "type": "main", "index": 0 }]] },
+    "Social build prompt": { "main": [[{ "node": "Social Response Agent", "type": "main", "index": 0 }]] },
+    "Social Response Agent": { "main": [[{ "node": "Social lagre respons", "type": "main", "index": 0 }]] },
+    "Social lagre respons": { "main": [[{ "node": "Social svar 200", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "videomill-v5-0",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "videomill-v5-upgrade-2026"
+  },
+  "id": "AEqRWNyPs5CvIy7q",
+  "tags": ["video-production", "ai-agents", "automation"]
+}

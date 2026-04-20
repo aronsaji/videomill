@@ -1,0 +1,153 @@
+{
+  "name": "VideoMill Error Fixer Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": { "item": [{ "mode": "everyX", "value": 15, "unit": "minutes" }] }
+      },
+      "id": "error-trigger-001",
+      "name": "Cron - Check Errors (15m)",
+      "type": "n8n-nodes-base.cron",
+      "position": [160, -900],
+      "typeVersion": 1,
+      "notes": "Sjekker for feil hver 15. minutt"
+    },
+    {
+      "method": "GET",
+      "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?status=eq.failed&select=id,topic,status,sub_status,created_at",
+      "sendHeaders": true,
+      "headerParameters": {
+        "parameters": [
+          { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+          { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+          { "name": "Prefer", "value": "count=exact" }
+        ]
+      },
+      "options": {}
+    },
+    "id": "fetch-failed-001",
+    "name": "Hent feilede videoer",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [360, -900],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const failed = $input.all();\nif (failed.length === 0) return [];\n\n// Bygg feilanalyse-prompt\nconst videoList = failed.map(v => ({\n  id: v.json.id,\n  topic: v.json.topic,\n  sub_status: v.json.sub_status,\n  created_at: v.json.created_at\n}));\n\nconst prompt = `Analyze these failed video productions and determine the likely cause of failure:\\n\\n${JSON.stringify(videoList, null, 2)}\\n\\nFor each failed video, respond with JSON array containing:\\n- video_id: string\\n- error_type: string (one of: network_error, api_rate_limit, script_parsing_error, media_not_found, voiceover_failed, ffmpeg_error, unknown)\\n- likely_cause: string (brief explanation)\\n- fix_recommendation: string (what to fix for retry)\\n\\nReturn only valid JSON array.`;\n\nreturn [{ json: { prompt, videos: videoList, count: failed.length } }];"
+      },
+      "id": "error-analyze-001",
+      "name": "Analyser feil",
+      "type": "n8n-nodes-base.code",
+      "position": [560, -900],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-70b-versatile\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an expert video production error fixer. Analyze failure logs and provide actionable fixes. Always return valid JSON.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.prompt }}\"\n    }\n  ],\n  \"max_tokens\": 1500,\n  \"temperature\": 0.3\n}",
+        "options": {}
+      },
+      "id": "error-agent-001",
+      "name": "Error Fixer AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [760, -900],
+      "typeVersion": 4.4,
+      "notes": "AI analyserer feil og foreslår fikser"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json.choices[0].message.content;\nlet analysis = [];\ntry { analysis = JSON.parse(response); }\ncatch { try { const match = response.match(/\\[[\\s\\S]*\\]/); if (match) analysis = JSON.parse(match[0]); } catch(e) { analysis = []; } }\n\nif (!Array.isArray(analysis) || analysis.length === 0) {\n  return [{ json: { action: 'none', message: 'No errors to fix' } }];\n}\n\n// Bygg oppdateringer basert på analyse\nconst updates = analysis.map(a => ({\n  video_id: a.video_id,\n  error_type: a.error_type,\n  likely_cause: a.likely_cause,\n  fix_recommendation: a.fix_recommendation,\n  // Reset til queued for retry\n  status: 'queued',\n  progress: 0,\n  sub_status: 'Auto-retry etter feilretting: ' + (a.likely_cause || 'unknown')\n}));\n\nreturn updates.map(u => ({ json: u }));"
+      },
+      "id": "parse-fix-001",
+      "name": "Parse fikser",
+      "type": "n8n-nodes-base.code",
+      "position": [960, -900],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'queued', progress: 0, sub_status: $json.fix_recommendation }) }}",
+        "options": {}
+      },
+      "id": "retry-fixes-001",
+      "name": "Reset for retry",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1160, -900],
+      "typeVersion": 4.4,
+      "notes": "Resetter feilede videoer til queued for automatisk retry"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/agent_reports",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ agent: 'ErrorFixer', report: 'Auto-fikset ' + $input.all().length + ' feilede videoer', recommendations: $input.all().map(i => i.json.fix_recommendation), created_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "log-fix-001",
+      "name": "Logg fikser",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1360, -900],
+      "typeVersion": 4.4,
+      "notes": "Logger fikser til agent_reports"
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log('Error Fixer kjørte. Antall fikset: ' + $input.all().length);\nreturn $input.all();"
+      },
+      "id": "complete-001",
+      "name": "Fullført",
+      "type": "n8n-nodes-base.code",
+      "position": [1560, -900],
+      "typeVersion": 2
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Cron - Check Errors (15m)": { "main": [[{ "node": "Hent feilede videoer", "type": "main", "index": 0 }]] },
+    "Hent feilede videoer": { "main": [[{ "node": "Analyser feil", "type": "main", "index": 0 }]] },
+    "Analyser feil": { "main": [[{ "node": "Error Fixer AI", "type": "main", "index": 0 }]] },
+    "Error Fixer AI": { "main": [[{ "node": "Parse fikser", "type": "main", "index": 0 }]] },
+    "Parse fikser": { "main": [[{ "node": "Reset for retry", "type": "main", "index": 0 }]] },
+    "Reset for retry": { "main": [[{ "node": "Logg fikser", "type": "main", "index": 0 }]] },
+    "Logg fikser": { "main": [[{ "node": "Fullført", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
+  "versionId": "error-fixer-v1",
+  "id": "error-fixer-agent",
+  "tags": ["error-fixing", "auto-retry"]
+}

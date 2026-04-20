@@ -1,0 +1,299 @@
+{
+  "name": "VideoMill - AI Comment & Engagement Auto-Responder",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "minutes", "minutesInterval": 5}]
+        }
+      },
+      "id": "cron-check-comments",
+      "name": "Cron - Sjekk kommentarer (hvert 5 min)",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "typeVersion": 1.4,
+      "notes": "Sjekker for nye kommentarer hvert 5. minutt"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/comments?select=*&order=created_at.desc&limit=20",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_ANON_KEY }}"}
+          ]
+        },
+        "options": {"timeout": 10000}
+      },
+      "id": "fetch-comments",
+      "name": "Hent nye kommentarer",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 300],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const comments = $input.first().json;\n\n// Filter kun kommentarer som IKKE er besvart\nconst unreplied = (Array.isArray(comments) ? comments : []).filter(c => !c.replied);\n\nif (unreplied.length === 0) return [{json:{skip:true, reason:'Ingen nye kommentarer'}}];\n\nreturn unreplied.map(c => ({json:{\n  comment_id: c.id,\n  author: c.author,\n  text: c.text,\n  platform: c.platform,\n  video_id: c.video_id,\n  sentiment: c.sentiment || 'neutral'\n}}));"
+      },
+      "id": "filter-unreplied",
+      "name": "Filter: Ubesvarte",
+      "type": "n8n-nodes-base.code",
+      "position": [650, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"version": 3},
+          "conditions": [
+            {"id": "c1", "leftValue": "={{ $json.skip }}", "rightValue": "true", "operator": {"type": "boolean", "operation": "true"}}
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-skip",
+      "name": "Ingen kommentarer?",
+      "type": "n8n-nodes-base.if",
+      "position": [850, 300],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "jsCode": "const comment = $input.first().json;\n\n// AI sentiment analysis via keywords\nconst text = comment.text.toLowerCase();\n\nconst positive = ['awesome','amazing','great','love','fantastic','perfect','best','wow','🔥','❤️','🙏','thank'];\nconst negative = ['bad','worst','hate','suck','terrible','awful','boring','waste','trash'];\n\nlet sentiment = 'neutral';\nif (positive.some(w => text.includes(w))) sentiment = 'positive';\nelse if (negative.some(w => text.includes(w))) sentiment = 'negative';\n\n// Detect intent\nconst isQuestion = text.includes('?') || text.includes('how') || text.includes('what');\nconst isSuggestion = text.includes('could') || text.includes('should') || text.includes('would be nice');\n\nreturn [{json:{\n  ...comment,\n  sentiment,\n  intent: isQuestion ? 'question' : isSuggestion ? 'suggestion' : 'neutral'\n}}];"
+      },
+      "id": "sentiment-analysis",
+      "name": "AI - Sentiment & Intent",
+      "type": "n8n-nodes-base.code",
+      "position": [1050, 250],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ANTHROPIC_WEBHOOK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "X-VideoMill-Auth", "value": "={{ $env.N8N_HEADER_AUTH_VALUE }}"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({action: 'generate_reply', comment: $json.text, author: $json.author, intent: $json.intent}) }}",
+        "options": {"timeout": 30000}
+      },
+      "id": "ai-generate-reply",
+      "name": "Claude - Generer svar",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1250, 250],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\n// Fallback hvis AI feiler\nlet reply = data.reply || '';\nif (!reply) {\n  const name = data.author?.split(' ')[0] || 'Hei';\n  const intents = {\n    question: 'Flott spørsmål! Svarer i neste video 🎬',\n    suggestion: 'Takk for innspill! Tar det med meg!',\n    positive: 'Takk så mye! ❤️',\n    neutral: 'Takk for tilbakemelding! 👍'\n  };\n  reply = intents[data.intent] || intents.neutral;\n  reply = reply.replace('{name}', name);\n}\n\nreturn [{json:{\n  comment_id: data.comment_id,\n  author: data.author,\n  text: data.text,\n  reply,\n  platform: data.platform\n}}];"
+      },
+      "id": "parse-reply",
+      "name": "Parse AI svar",
+      "type": "n8n-nodes-base.code",
+      "position": [1450, 250],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"version": 3},
+          "conditions": [
+            {"id": "c1", "leftValue": "={{ $json.platform }}", "rightValue": "tiktok", "operator": {"type": "string", "operation": "equals"}}
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-platform",
+      "name": "Route: Platform",
+      "type": "n8n-nodes-base.if",
+      "position": [1650, 250],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TIKTOK_COMMENT_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({comment_id: $json.comment_id, reply: $json.reply}) }}",
+        "options": {"timeout": 15000}
+      },
+      "id": "reply-tiktok",
+      "name": "TikTok: Svar",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1850, 150],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.YOUTUBE_COMMENT_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({comment_id: $json.comment_id, reply: $json.reply}) }}",
+        "options": {"timeout": 15000}
+      },
+      "id": "reply-youtube",
+      "name": "YouTube: Svar",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1850, 350],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.IG_COMMENT_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({comment_id: $json.comment_id, reply: $json.reply}) }}",
+        "options": {"timeout": 15000}
+      },
+      "id": "reply-ig",
+      "name": "IG: Svar",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2050, 250],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/comments?id=eq.{{ $json.comment_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"replied\": true, \"reply_text\": \"{{ $json.reply }}\", \"replied_at\": \"{{ $now }}\"}",
+        "options": {}
+      },
+      "id": "mark-replied",
+      "name": "Marker som besvart",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2250, 250],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log for analytics\nconsole.log('Svarte på kommentar:', $json.author, $json.reply?.slice(0, 50));\nreturn [{json:{status:'ok', action:'replied'}}];"
+      },
+      "id": "log-reply",
+      "name": "Log reply",
+      "type": "n8n-nodes-base.code",
+      "position": [2450, 250],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"version": 3},
+          "conditions": [
+            {"id": "c1", "leftValue": "={{ $json.intent }}", "rightValue": "question", "operator": {"type": "string", "operation": "equals"}},
+            {"id": "c2", "leftValue": "={{ $json.text }}", "rightValue": "help", "operator": {"type": "string", "operation": "contains"}}
+          ]
+        },
+        "options": {"combinator": "or"}
+      },
+      "id": "check-followup",
+      "name": "Trenger oppfølging?",
+      "type": "n8n-nodes-base.if",
+      "position": [2650, 250],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/follow_ups",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"comment_id\": \"{{ $json.comment_id }}\", \"scheduled_for\": \"{{ $date.add(2, 'hours') }}\", \"status\": \"pending\"}",
+        "options": {}
+      },
+      "id": "schedule-followup",
+      "name": "Schedule oppfølging",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2850, 250],
+      "typeVersion": 4.4
+    }
+  ],
+  "connections": {
+    "Cron - Sjekk kommentarer (hvert 5 min)": {
+      "main": [[{"node": "Hent nye kommentarer", "type": "main", "index": 0}]]
+    },
+    "Hent nye kommentarer": {
+      "main": [[{"node": "Filter: Ubesvarte", "type": "main", "index": 0}]]
+    },
+    "Filter: Ubesvarte": {
+      "main": [[{"node": "Ingen kommentarer?", "type": "main", "index": 0}]]
+    },
+    "Ingen kommentarer?": {
+      "main": [
+        [],  // false - skip rest
+        [{"node": "AI - Sentiment & Intent", "type": "main", "index": 0}]  // true
+      ]
+    },
+    "AI - Sentiment & Intent": {
+      "main": [[{"node": "Claude - Generer svar", "type": "main", "index": 0}]]
+    },
+    "Claude - Generer svar": {
+      "main": [[{"node": "Parse AI svar", "type": "main", "index": 0}]]
+    },
+    "Parse AI svar": {
+      "main": [[{"node": "Route: Platform", "type": "main", "index": 0}]]
+    },
+    "Route: Platform": {
+      "main": [
+        [{"node": "TikTok: Svar", "type": "main", "index": 0}],
+        [{"node": "YouTube: Svar", "type": "main", "index": 0}],
+        [{"node": "IG: Svar", "type": "main", "index": 0}]
+      ]
+    },
+    "TikTok: Svar": {
+      "main": [[{"node": "Marker som besvart", "type": "main", "index": 0}]]
+    },
+    "YouTube: Svar": {
+      "main": [[{"node": "Marker som besvart", "type": "main", "index": 0}]]
+    },
+    "IG: Svar": {
+      "main": [[{"node": "Marker som besvart", "type": "main", "index": 0}]]
+    },
+    "Marker som besvart": {
+      "main": [[{"node": "Log reply", "type": "main", "index": 0}]]
+    },
+    "Log reply": {
+      "main": [[{"node": "Trenger oppfølging?", "type": "main", "index": 0}]]
+    },
+    "Trenger oppfølging?": {
+      "main": [
+        [{"node": "Schedule oppfølging", "type": "main", "index": 0}],
+        []  // false
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "comment-bot-v1",
+  "tags": ["auto-reply", "engagement", "ai"]
+}

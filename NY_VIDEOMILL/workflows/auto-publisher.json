@@ -1,0 +1,285 @@
+{
+  "name": "VideoMill - Auto Cross-Publisher",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": 8,
+              "minute": 0
+            }
+          ]
+        }
+      },
+      "id": "cron-morning",
+      "name": "Cron - Morning batch (08:00)",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": 14,
+              "minute": 0
+            }
+          ]
+        }
+      },
+      "id": "cron-afternoon",
+      "name": "Cron - Afternoon batch (14:00)",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": 20,
+              "minute": 0
+            }
+          ]
+        }
+      },
+      "id": "cron-evening",
+      "name": "Cron - Evening batch (20:00)",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 500]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?status=eq.complete&select=*&limit=10",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_ANON_KEY }}"}
+          ]
+        },
+        "options": {"timeout": 10000}
+      },
+      "id": "fetch-ready",
+      "name": "Hent ferdige videoer",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 300],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const videos = $input.first().json || [];\n\n// Filter videoer som ikke er publisert enda\nconst toPublish = videos.filter(v => {\n  if (!v.metadata?.distributions) return true;\n  const dist = v.metadata.distributions || {};\n  return !dist.tiktok || !dist.youtube || !dist.instagram;\n});\n\nif (toPublish.length === 0) return [{json:{skip:true}}];\n\nreturn toPublish.map(v => ({json:{\n  id: v.id,\n  title: v.title,\n  video_url: v.video_url || v.metadata?.video_url_9x16,\n  platform: v.metadata?.platforms || ['tiktok'],\n  aspect_ratio: v.aspect_ratio || '9:16',\n  scheduled_for: v.metadata?.scheduled_for || null\n}}));"
+      },
+      "id": "filter-tasks",
+      "name": "Filter: Upubliserte",
+      "type": "n8n-nodes-base.code",
+      "position": [650, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"version": 3},
+          "conditions": [
+            {"id": "c1", "leftValue": "={{ $json.skip }}", "rightValue": "true", "operator": {"type": "boolean", "operation": "true"}}
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-skip",
+      "name": "Ingen å publisere?",
+      "type": "n8n-nodes-base.if",
+      "position": [850, 300],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "jsCode": "const video = $json;\n\n// Generer titler og beskrivelser per platform\nconst titles = {\n  tiktok: video.title.slice(0, 100),\n  youtube: video.title + ' #shorts',\n  instagram: video.title.slice(0, 125)\n};\n\nconst descriptions = {\n  tiktok: '#viral #fyp #trending',\n  youtube: 'Video generert av VideoMill AI. Følg for mer content!',\n  instagram: '#reels #viral #fyp'\n};\n\nconst hashtags = {\n  tiktok: ['#fyp', '#foryou', '#trending', '#viral'].join(' '),\n  youtube: ['#shorts', '#youtubeshorts', '#viral'].join(' '),\n  instagram: ['#reels', '#instagram', '#viral'].join(' ')\n};\n\nreturn [{json:{\n  ...video,\n  titles,\n  descriptions,\n  hashtags\n}}];"
+      },
+      "id": "prepare-metadata",
+      "name": "Prep metadata",
+      "type": "n8n-nodes-base.code",
+      "position": [1050, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"version": 3},
+          "conditions": [
+            {"id": "c1", "leftValue": "={{ $json.platform }}", "rightValue": "tiktok", "operator": {"type": "string", "operation": "contains"}}
+          ]
+        },
+        "options": {"combinator": "or"}
+      },
+      "id": "check-tiktok",
+      "name": "Sjekk: TikTok",
+      "type": "n8n-nodes-base.if",
+      "position": [1250, 250],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TIKTOK_UPLOAD_WEBHOOK }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  video_url: $json.video_url,\n  title: $json.titles.tiktok,\n  description: $json.descriptions.tiktok + ' ' + $json.hashtags.tiktok,\n  privacy: 'public'\n}) }}",
+        "options": {"timeout": 90000}
+      },
+      "id": "upload-tiktok",
+      "name": "Upload TikTok",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1450, 150],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.YOUTUBE_UPLOAD_WEBHOOK }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  video_path: $json.video_url,\n  title: $json.titles.youtube,\n  description: $json.descriptions.youtube + ' ' + $json.hashtags.youtube,\n  privacy: 'private',\n  tags: ['shorts', 'viral', 'trending']\n}) }}",
+        "options": {"timeout": 90000}
+      },
+      "id": "upload-youtube",
+      "name": "Upload YouTube",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1450, 300],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.IG_UPLOAD_WEBHOOK }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  video_url: $json.video_url,\n  caption: $json.descriptions.instagram + ' ' + $json.hashtags.instagram\n}) }}",
+        "options": {"timeout": 90000}
+      },
+      "id": "upload-ig",
+      "name": "Upload IG",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1450, 450],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\n// Samle alle distributions\nconst distributions = {\n  tiktok: data.tiktok?.external_url || null,\n  youtube: data.youtube?.external_url || null,\n  instagram: data.instagram?.external_url || null\n};\n\n// Update video i DB\nreturn [{json:{\n  video_id: $json.id,\n  status: 'published',\n  published_at: new Date().toISOString(),\n  distributions\n}}];"
+      },
+      "id": "update-dists",
+      "name": "Update distributions",
+      "type": "n8n-nodes-base.code",
+      "position": [1650, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({status: 'published', published_at: $json.published_at, metadata: $json.distributions}) }}",
+        "options": {}
+      },
+      "id": "mark-published",
+      "name": "Marker publisert",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1850, 300],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NOTIFICATION_WEBHOOK }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  title: 'Video publisert!',\n  message: 'Video er nå live på ' + Object.keys($json.distributions).join(', '),\n  platforms: Object.keys($json.distributions)\n}) }}",
+        "options": {}
+      },
+      "id": "notify",
+      "name": "Notify user",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2050, 300],
+      "typeVersion": 4.4
+    }
+  ],
+  "connections": {
+    "Cron - Morning batch (08:00)": {
+      "main": [[{"node": "Hent ferdige videoer", "type": "main", "index": 0}]]
+    },
+    "Cron - Afternoon batch (14:00)": {
+      "main": [[{"node": "Hent ferdige videoer", "type": "main", "index": 0}]]
+    },
+    "Cron - Evening batch (20:00)": {
+      "main": [[{"node": "Hent ferdige videoer", "type": "main", "index": 0}]]
+    },
+    "Hent ferdige videoer": {
+      "main": [[{"node": "Filter: Upubliserte", "type": "main", "index": 0}]]
+    },
+    "Filter: Upubliserte": {
+      "main": [[{"node": "Ingen å publisere?", "type": "main", "index": 0}]]
+    },
+    "Ingen å publisere?": {
+      "main": [
+        [],
+        [{"node": "Prep metadata", "type": "main", "index": 0}]
+      ]
+    },
+    "Prep metadata": {
+      "main": [[{"node": "Sjekk: TikTok", "type": "main", "index": 0}]]
+    },
+    "Sjekk: TikTok": {
+      "main": [
+        [{"node": "Upload TikTok", "type": "main", "index": 0}],
+        []  // false
+      ]
+    },
+    "Upload TikTok": {
+      "main": [[{"node": "Update distributions", "type": "main", "index": 0}]]
+    },
+    "Upload YouTube": {
+      "main": [[{"node": "Update distributions", "type": "main", "index": 0}]]
+    },
+    "Upload IG": {
+      "main": [[{"node": "Update distributions", "type": "main", "index": 0}]]
+    },
+    "Update distributions": {
+      "main": [[{"node": "Marker publisert", "type": "main", "index": 0}]]
+    },
+    "Marker publisert": {
+      "main": [[{"node": "Notify user", "type": "main", "index": 0}]]
+    }
+  },
+  "active": true,
+  "id": "auto-publisher",
+  "tags": ["auto-publish", "cross-platform"]
+}

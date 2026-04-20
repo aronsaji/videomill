@@ -1,0 +1,455 @@
+{
+  "name": "VideoMill - Auto Production Pipeline v5.0 (Claude)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "hours", "hoursInterval": 1}]
+        }
+      },
+      "id": "cron-autoproducer",
+      "name": "Cron - Auto-Produce ( hourly)",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "typeVersion": 1.4,
+      "notes": "Kjører hver time – henter trender og auto-produserer"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/trending_topics?active=eq.true&order=viral_score.desc&limit=3",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_ANON_KEY }}"}
+          ]
+        },
+        "options": {"timeout": 10000}
+      },
+      "id": "fetch-trends",
+      "name": "Hent-topp-trender",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 300],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const trends = $input.first().json;\n// Velg kun #1 trend for auto-produksjon (unngå spam)\nconst topTrend = Array.isArray(trends) ? trends[0] : trends;\n\nif (!topTrend) return [{json:{skip:true, reason:'Ingen aktive trender'}}];\n\nreturn [{json:{\n  skip: false,\n  trend_id: topTrend.id,\n  topic: topTrend.title,\n  platform: topTrend.platform || 'youtube',\n  language: topTrend.language || 'nb',\n  target_audience: topTrend.target_audience || 'general',\n  category: topTrend.category,\n  tags: topTrend.tags,\n  viral_score: topTrend.viral_score\n}}];"
+      },
+      "id": "select-toptrend",
+      "name": "Velg #1 trend",
+      "type": "n8n-nodes-base.code",
+      "position": [650, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": false, "version": 3},
+          "conditions": [
+            {"id": "check-skip", "leftValue": "={{ $json.skip }}", "rightValue": "true", "operator": {"type": "boolean", "operation": "true"}}
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-skip",
+      "name": "Skip?",
+      "type": "n8n-nodes-base.if",
+      "position": [850, 300],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_ANON_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=representation"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"{{ $json.topic }}\",\n  \"topic\": \"{{ $json.topic }}\",\n  \"platform\": \"{{ $json.platform }}\",\n  \"language\": \"{{ $json.language }}\",\n  \"target_audience\": \"{{ $json.target_audience }}\",\n  \"status\": \"queued\",\n  \"progress\": 0,\n  \"aspect_ratio\": \"9:16\",\n  \"captions_enabled\": true,\n  \"promp\": \"Lag en fengende {{ $json.platform }}-video om: {{ $json.topic }}. Målgruppe: {{ $json.target_audience }}. Bruk engasjerende åpning, hodertrykk og call-to-action.\"\n}",
+        "options": {}
+      },
+      "id": "create-video-row",
+      "name": "Opprett video-rad",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1050, 250],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"queued\",\n  \"video_id\": \"{{ $json[0].id }}\",\n  \"topic\": \"{{ $json.topic }}\"\n}",
+        "options": {"responseCode": 201}
+      },
+      "id": "respond-video",
+      "name": "Svar 201",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1250, 250],
+      "typeVersion": 1.5
+    },
+    {
+      "parameters": {
+        "jsCode": "const video = $input.first().json[0];\n\n// Bygg payload til Claude webhook\nreturn [{json:{\n  video_id: video.id,\n  user_id: video.user_id,\n  topic: video.topic,\n  platform: video.platform,\n  language: video.language,\n  aspect_ratio: video.aspect_ratio,\n  target_audience: video.target_audience,\n  voice_id: video.voice_id || 'nb-NO-PernilleNeural',\n  promp: video.promp,\n  action: 'produce'\n}}];"
+      },
+      "id": "build-claude-payload",
+      "name": "Build Claude Payload",
+      "type": "n8n-nodes-base.code",
+      "position": [1450, 250],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ANTHROPIC_WEBHOOK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "X-VideoMill-Auth", "value": "={{ $env.N8N_HEADER_AUTH_VALUE }}"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {"timeout": 60000}
+      },
+      "id": "call-claude",
+      "name": "Claude - Generer manus",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1650, 250],
+      "typeVersion": 4.4,
+      "notes": "Kaller Claude 4 Sonnet for manus-generering"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nif (data.error) {\n  throw new Error('Claude feilet: ' + data.error);\n}\n\n// Oppdater status til scripting\nreturn [{json:{\n  video_id: data.video_id,\n  script: data.script,\n  scenes: data.scenes,\n  status: 'scripting',\n  progress: 15\n}}];"
+      },
+      "id": "parse-claude",
+      "name": "Parse Claude svar",
+      "type": "n8n-nodes-base.code",
+      "position": [1850, 250],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({status: 'scripting', progress: 15, script: $json.script}) }}",
+        "options": {}
+      },
+      "id": "update-scripting",
+      "name": "Oppdater: scripting",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2050, 250],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ANTHROPIC_WEBHOOK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "X-VideoMill-Auth", "value": "={{ $env.N8N_HEADER_AUTH_VALUE }}"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({video_id: $json.video_id, scenes: $json.scenes, action: 'voiceover'}) }}",
+        "options": {"timeout": 60000}
+      },
+      "id": "call-voice",
+      "name": "ElevenLabs - Voiceover",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2250, 250],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"status\": \"recording\", \"progress\": 45}",
+        "options": {}
+      },
+      "id": "update-recording",
+      "name": "Oppdater: recording",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2450, 250],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ANTHROPIC_WEBHOOK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "X-VideoMill-Auth", "value": "={{ $env.N8N_HEADER_AUTH_VALUE }}"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({video_id: $json.video_id, scenes: $json.scenes, action: 'video_clips'}) }}",
+        "options": {"timeout": 120000}
+      },
+      "id": "call-video",
+      "name": "Pexels/Pixabay - Video Clips",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2650, 250],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"status\": \"editing\", \"progress\": 70}",
+        "options": {}
+      },
+      "id": "update-editing",
+      "name": "Oppdater: editing",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2850, 250],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ANTHROPIC_WEBHOOK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "X-VideoMill-Auth", "value": "={{ $env.N8N_HEADER_AUTH_VALUE }}"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({video_id: $json.video_id, action: 'render'}) }}",
+        "options": {"timeout": 180000}
+      },
+      "id": "call-render",
+      "name": "FFmpeg - Render & Upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [3050, 250],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\n// Finn primary video URL\nconst videoUrl = data.video_url || data.video_url_9x16 || data.video_url_16x9 || null;\n\nreturn [{json:{\n  video_id: data.video_id || data.id,\n  video_url: videoUrl,\n  status: videoUrl ? 'complete' : 'failed',\n  progress: videoUrl ? 100 : 0\n}}];"
+      },
+      "id": "parse-result",
+      "name": "Parse resultat",
+      "type": "n8n-nodes-base.code",
+      "position": [3250, 250],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({status: $json.status, progress: $json.progress, video_url: $json.video_url}) }}",
+        "options": {}
+      },
+      "id": "update-complete",
+      "name": "Oppdater: complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [3450, 250],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"version": 3},
+          "conditions": [
+            {"id": "c1", "leftValue": "={{ $json.status }}", "rightValue": "complete", "operator": {"type": "string", "operation": "equals"}}
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-success",
+      "name": "Ferdig?",
+      "type": "n8n-nodes-base.if",
+      "position": [3650, 250],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TIKTOK_UPLOAD_WEBHOOK }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({video_url: $json.video_url, title: $json.topic, platform: 'tiktok'}) }}",
+        "options": {"timeout": 60000}
+      },
+      "id": "upload-tiktok",
+      "name": "Auto-publiser TikTok",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [3850, 150],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.YOUTUBE_UPLOAD_WEBHOOK }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({video_url: $json.video_url, title: $json.topic, platform: 'youtube', privacy: 'private'}) }}",
+        "options": {"timeout": 60000}
+      },
+      "id": "upload-youtube",
+      "name": "Auto-publiser YouTube",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [3850, 350],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"{{ $json.status }}\",\n  \"video_id\": \"{{ $json.video_id }}\",\n  \"message\": \"Auto-produksjon {{ $json.status }}\"\n}",
+        "options": {"responseCode": 200}
+      },
+      "id": "respond-complete",
+      "name": "Svar OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [4050, 250],
+      "typeVersion": 1.5
+    }
+  ],
+  "connections": {
+    "Cron - Auto-Produce ( hourly)": {
+      "main": [[{"node": "Hent-topp-trender", "type": "main", "index": 0}]]
+    },
+    "Hent-topp-trender": {
+      "main": [[{"node": "Velg #1 trend", "type": "main", "index": 0}]]
+    },
+    "Velg #1 trend": {
+      "main": [[{"node": "Skip?", "type": "main", "index": 0}]]
+    },
+    "Skip?": {
+      "main": [
+        [{"node": "Svar 201", "type": "main", "index": 0}],
+        [{"node": "Svar 201", "type": "main", "index": 0}]
+      ]
+    },
+    "Opprett video-rad": {
+      "main": [[{"node": "Svar 201", "type": "main", "index": 0}]]
+    },
+    "Svar 201": {
+      "main": [[{"node": "Build Claude Payload", "type": "main", "index": 0}]]
+    },
+    "Build Claude Payload": {
+      "main": [[{"node": "Claude - Generer manus", "type": "main", "index": 0}]]
+    },
+    "Claude - Generer manus": {
+      "main": [[{"node": "Parse Claude svar", "type": "main", "index": 0}]]
+    },
+    "Parse Claude svar": {
+      "main": [[{"node": "Oppdater: scripting", "type": "main", "index": 0}]]
+    },
+    "Oppdater: scripting": {
+      "main": [[{"node": "ElevenLabs - Voiceover", "type": "main", "index": 0}]]
+    },
+    "ElevenLabs - Voiceover": {
+      "main": [[{"node": "Oppdater: recording", "type": "main", "index": 0}]]
+    },
+    "Oppdater: recording": {
+      "main": [[{"node": "Pexels/Pixabay - Video Clips", "type": "main", "index": 0}]]
+    },
+    "Pexels/Pixabay - Video Clips": {
+      "main": [[{"node": "Oppdater: editing", "type": "main", "index": 0}]]
+    },
+    "Oppdater: editing": {
+      "main": [[{"node": "FFmpeg - Render & Upload", "type": "main", "index": 0}]]
+    },
+    "FFmpeg - Render & Upload": {
+      "main": [[{"node": "Parse resultat", "type": "main", "index": 0}]]
+    },
+    "Parse resultat": {
+      "main": [[{"node": "Oppdater: complete", "type": "main", "index": 0}]]
+    },
+    "Oppdater: complete": {
+      "main": [[{"node": "Ferdig?", "type": "main", "index": 0}]]
+    },
+    "Ferdig?": {
+      "main": [
+        [{"node": "Auto-publiser TikTok", "type": "main", "index": 0}],
+        [{"node": "Auto-publiser YouTube", "type": "main", "index": 0}],
+        [{"node": "Auto-publiser TikTok", "type": "main", "index": 0}]
+      ]
+    },
+    "Auto-publiser TikTok": {
+      "main": [[{"node": "Svar OK", "type": "main", "index": 0}]]
+    },
+    "Auto-publiser YouTube": {
+      "main": [[{"node": "Svar OK", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryDataMode": "false"
+  },
+  "id": "auto-production-v5",
+  "tags": ["auto", "claude", "trending"]
+}

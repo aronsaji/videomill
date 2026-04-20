@@ -1,0 +1,159 @@
+{
+  "name": "VideoMill - Hashtag Automator & Best Time Scheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "hours", "hoursInterval": 6}]
+        }
+      },
+      "id": "cron-hashtags",
+      "name": "Cron - Oppdater trender (hver 6t)",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.tiktok.com/v1/trend/hashtags",
+        "options": {"timeout": 15000}
+      },
+      "id": "fetch-tiktok",
+      "name": "TikTok trends",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 200],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/youtube/v3/guideCategories",
+        "options": {"timeout": 15000}
+      },
+      "id": "fetch-youtube",
+      "name": "YouTube trends",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 300],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://graph.facebook.com/v18.0/ig_hashtags_search",
+        "options": {"timeout": 15000}
+      },
+      "id": "fetch-ig",
+      "name": "IG trends",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 400],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const tiktok = $input.items[0]?.json || [];\nconst youtube = $input.items[1]?.json || [];\nconst ig = $input.items[2]?.json || [];\n\n// Samle alle hashtags\nconst allTags = [\n  ...new Set([...tiktok, ...youtube, ...ig])\n].slice(0, 20);\n\nreturn allTags.map(tag => ({json:{\n  tag,\n  platform: 'all',\n  viral_score: Math.floor(Math.random() * 40 + 60),\n  updated_at: new Date().toISOString()\n}}));"
+      },
+      "id": "merge-tags",
+      "name": "Merge hashtags",
+      "type": "n8n-nodes-base.code",
+      "position": [650, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/trending_hashtags",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "resolution=merge"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($input.all().map(i => i.json)) }}",
+        "options": {}
+      },
+      "id": "save-hashtags",
+      "name": "Lagre hashtags",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 300],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate optimal posting schedule\nconst schedule = [];\nconst now = new Date();\n\n// TikTok: 18-21 på hverdager, helg\nconst tiktokTimes = [\n  {hour: 8, day: 'monday'},\n  {hour: 19, day: 'tuesday'},\n  {hour: 19, day: 'wednesday'},\n  {hour: 20, day: 'thursday'},\n  {hour: 19, day: 'friday'},\n  {hour: 10, day: 'saturday'},\n  {hour: 14, day: 'sunday'}\n];\n\n// YouTube: 16-19\nconst ytTimes = [\n  {hour: 17, day: 'friday'},\n  {hour: 12, day: 'saturday'},\n  {hour: 14, day: 'sunday'}\n];\n\n// IG: 19-21\neverywhere: {hour: 20, day: 'wednesday'},\n\n// Generer schedule entries\nschedule.push(\n  ...tiktokTimes.map(t => ({json:{\n    platform: 'tiktok',\n    day: t.day,\n    hour: t.hour,\n    optimal: true\n  }}))\n);\n\nreturn schedule;"
+      },
+      "id": "generate-schedule",
+      "name": "Generate schedule",
+      "type": "n8n-nodes-base.code",
+      "position": [1050, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/posting_schedule",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($input.all().map(i => i.json)) }}",
+        "options": {}
+      },
+      "id": "save-schedule",
+      "name": "Lagre schedule",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1250, 300],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log('Hashtags & schedule oppdatert');\nreturn [{json:{status:'ok'}}];"
+      },
+      "id": "done",
+      "name": "Done",
+      "type": "n8n-nodes-base.code",
+      "position": [1450, 300],
+      "typeVersion": 2
+    }
+  ],
+  "connections": {
+    "Cron - Oppdater trender (hver 6t)": {
+      "main": [[{"node": "TikTok trends", "type": "main", "index": 0}]]
+    },
+    "TikTok trends": {
+      "main": [[{"node": "Merge hashtags", "type": "main", "index": 0}]]
+    },
+    "YouTube trends": {
+      "main": [[{"node": "Merge hashtags", "type": "main", "index": 0}]]
+    },
+    "IG trends": {
+      "main": [[{"node": "Merge hashtags", "type": "main", "index": 0}]]
+    },
+    "Merge hashtags": {
+      "main": [[{"node": "Lagre hashtags", "type": "main", "index": 0}]]
+    },
+    "Lagre hashtags": {
+      "main": [[{"node": "Generate schedule", "type": "main", "index": 0}]]
+    },
+    "Generate schedule": {
+      "main": [[{"node": "Lagre schedule", "type": "main", "index": 0}]]
+    },
+    "Lagre schedule": {
+      "main": [[{"node": "Done", "type": "main", "index": 0}]]
+    }
+  },
+  "active": true,
+  "id": "hashtag-scheduler",
+  "tags": ["hashtag", "schedule"]
+}

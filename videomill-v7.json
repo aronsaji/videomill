@@ -81,7 +81,7 @@
       "position": [450, 300],
       "parameters": {
         "method": "PATCH",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.body.video_id || '00000000-0000-0000-0000-000000000000' }}",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
           {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
@@ -107,7 +107,7 @@
       "position": [850, 300],
 "parameters": {
         "method": "PATCH",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.body.video_id || '00000000-0000-0000-0000-000000000000' }}",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
           {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
@@ -159,7 +159,7 @@
       "position": [1650, 300],
       "parameters": {
         "method": "PATCH",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.body.video_id || '00000000-0000-0000-0000-000000000000' }}",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
           {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
@@ -201,7 +201,7 @@
       "position": [2250, 300],
       "parameters": {
         "method": "PATCH",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.body.video_id || '00000000-0000-0000-0000-000000000000' }}",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
           {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
@@ -227,7 +227,7 @@
       "position": [2650, 300],
       "parameters": {
         "method": "PATCH",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.body.video_id || '00000000-0000-0000-0000-000000000000' }}",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
           {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},

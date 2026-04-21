@@ -105,11 +105,14 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [850, 300],
-      "parameters": {
+"parameters": {
         "method": "PATCH",
         "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [{"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"}]},
+        "headerParameters": {"parameters": [
+          {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+          {"name": "Authorization", "value": "Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}"}
+        ]},
         "sendBody": true,
         "jsonBody": "{\"status\": \"scripting\", \"progress\": 10}"
       }
@@ -154,7 +157,17 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [1650, 300],
-      "parameters": {"method": "PATCH", "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}", "jsonBody": "{\"status\": \"recording\", \"progress\": 30}"}
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+          {"name": "Authorization", "value": "Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}"}
+        ]},
+        "sendBody": true,
+        "jsonBody": "{\"status\": \"recording\", \"progress\": 30}"
+      }
     },
     {
       "id": "pixabay",
@@ -186,7 +199,17 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [2250, 300],
-      "parameters": {"method": "PATCH", "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}", "jsonBody": "{\"status\": \"editing\", \"progress\": 60}"}
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+          {"name": "Authorization", "value": "Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}"}
+        ]},
+        "sendBody": true,
+        "jsonBody": "{\"status\": \"editing\", \"progress\": 60}"
+      }
     },
     {
       "id": "final",
@@ -207,7 +230,8 @@
         "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
-          {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"}
+          {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+          {"name": "Authorization", "value": "Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}"}
         ]},
         "sendBody": true,
         "jsonBody": "{\"status\": \"complete\", \"progress\": 100, \"video_url\": \"{{$json.url}}\"}"

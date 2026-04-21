@@ -1,0 +1,129 @@
+{
+  "name": "VideoMill Unified",
+  "nodes": [
+    {
+      "parameters": {"httpMethod": "POST", "path": "videomill", "responseMode": "responseNode"},
+      "id": "webhook", "name": "Webhook - Video Request",
+      "type": "n8n-nodes-base.webhook", "typeVersion": 2.1,
+      "position": [250, 500]
+    },
+    {
+      "parameters": {"jsCode": "const body = $input.first().json.body || {};\nconst platform = body.platform || 'tiktok';\nconst aspect_ratio = body.aspect_ratio || '9:16';\n\nconst resolutions = {\n  '9:16': { width: 1080, height: 1920 },\n  '16:9': { width: 1920, height: 1080 },\n  '1:1': { width: 1080, height: 1080 }\n};\n\nconst res = resolutions[aspect_ratio] || resolutions['9:16'];\nreturn [{ json: { ...body, platform, aspect_ratio, width: res.width, height: res.height } }];"},
+      "id": "route", "name": "Route by Platform",
+      "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [450, 500]
+    },
+    {
+      "parameters": {"method": "PATCH", "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}", "sendHeaders": true, "headerParameters": {"parameters": [{"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"}, {"name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"}, {"name": "Content-Type", "value": "application/json"}, {"name": "Prefer", "value": "return=minimal"}]}, "sendBody": true, "specifyBody": "json", "jsonBody": "{\"status\": \"queued\", \"progress\": 5}"},
+      "id": "set-queued", "name": "Status: queued", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.4,
+      "position": [650, 500]
+    },
+    {
+      "parameters": {"respondWith": "json", "responseBody": "{\"status\": \"Mottatt!\"}", "options": {"responseCode": 200}},
+      "id": "respond", "name": "Ack", "type": "n8n-nodes-base.respondToWebhook", "position": [850, 500]
+    },
+    {
+      "parameters": {"method": "PATCH", "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}", "sendHeaders": true, "headerParameters": {"parameters": [{"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"}, {"name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]}, "sendBody": true, "specifyBody": "json", "jsonBody": "{\"status\": \"scripting\", \"progress\": 10}"},
+      "id": "set-scripting", "name": "Status: scripting", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.4,
+      "position": [1050, 500]
+    },
+    {
+      "parameters": {"method": "POST", "url": "https://api.groq.com/openai/v1/chat/completions", "sendHeaders": true, "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}, {"name": "Authorization", "value": "=Bearer {{ $env.GROQ_API_KEY }}"]}, "sendBody": true, "specifyBody": "json", "jsonBody": "{\"model\": \"llama-3.1-8b-instant\", \"messages\": [{\"role\": \"system\", \"content\": \"Viral kort video script. JSON: {\\\"title\\\":\\\"string\\\", \\\"scenes\\\":[{\\\\"narration\\\":\\\"string\\\", \\\"seconds\\\":number, \\\"search_keywords\\\":[\\\"string\\\"]}]}\"}, {\"role\": \"user\", \"content\": {{ JSON.stringify('Lag manus: ' + $('Webhook - Video Request').first().json.body.topic + '. Platform: ' + $('Route by Platform').first().json.platform + ', ' + ($('Route by Platform').first().json.aspect_ratio || '9:16') + '. 3-5 scener, hver 5-8 sek.') }}], \"max_tokens\": 1500, \"temperature\": 0.7}"},
+      "id": "groq", "name": "Groq - Script", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.4,
+      "position": [1250, 500]
+    },
+    {
+      "parameters": {"jsCode": "const r = $input.first().json.choices?.[0]?.message?.content || '';\nlet d = {};\ntry { d = JSON.parse(r); } catch { const m = r.match(/\\{[\\s\\S]*\\}/); d = m ? JSON.parse(m[0]) : { scenes: [{ narration: r, seconds: 6 }] }; }\nconst b = $('Route by Platform').first().json;\nreturn [{ json: { title: d.title, scenes: d.scenes, video_id: b.video_id, user_id: b.user_id, platform: b.platform, width: b.width, height: b.height } }];"},
+      "id": "parse", "name": "Parse Script", "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [1450, 500]
+    },
+    {
+      "parameters": {"jsCode": "const item = items[0].json;\nconst voice = 'nb-NO-PernilleNeural';\nreturn [{ json: { ...item, tts_voice: voice } }];"},
+      "id": "voice", "name": "Voice Map", "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [1650, 500]
+    },
+    {
+      "parameters": {"jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst text = (item.scenes || []).map(s => s.narration || '').filter(Boolean).join('. ').substring(0, 2000);\nconst v = item.video_id;\nconst dir = `/workspace/video_assets/${v}`;\ntry {\n  execSync(`mkdir -p ${dir}`, { shell: '/bin/bash' });\n  execSync(`edge-tts --voice \"${item.tts_voice}\" --text \"${text}\" --write-media \"${dir}/voice.mp3\"`, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\n  return [{ json: { ...item, voice_path: `${dir}/voice.mp3` } }];\n} catch(e) { throw new Error('Voice: ' + e.message); }"},
+      "id": "tts", "name": "Edge TTS", "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [1850, 500]
+    },
+    {
+      "parameters": {"method": "PATCH", "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}", "sendHeaders": true, "headerParameters": {"parameters": [{"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"}, {"name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]}, "sendBody": true, "specifyBody": "json", "jsonBody": "{\"status\": \"recording\", \"progress\": 30}"},
+      "id": "set-recording", "name": "Status: recording", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.4,
+      "position": [2050, 500]
+    },
+    {
+      "parameters": {"jsCode": "const item = items[0].json;\nconst scenes = item.scenes || [];\nreturn scenes.map((s, i) => ({ json: { video_id: item.video_id, query: s.search_keywords?.[0] || item.title, duration: s.seconds || 6, width: item.width, height: item.height, index: i } }));"},
+      "id": "split", "name": "Split Scenes", "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [2250, 500]
+    },
+    {
+      "parameters": {"continue": "true"},
+      "id": "loop", "name": "Loop Scenes", "type": "n8n-nodes-base.splitInBatches", "typeVersion": 3,
+      "position": [2450, 500]
+    },
+    {
+      "parameters": {"url": "https://pixabay.com/api/", "sendQuery": true, "queryParameters": {"parameters": [{"name": "key", "value": "55300791-85a1b0dbc3f21edc0dba73e86"}, {"name": "q", "value": "={{ $json.query }}"}, {"name": "video_type", "value": "film"}, {"name": "per_page", "value": "3"}]}, "options": {"timeout": 30000}},
+      "id": "pixabay", "name": "Pixabay Search", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.4,
+      "position": [2650, 500]
+    },
+    {
+      "parameters": {"jsCode": "const hits = $input.first().json.hits || [];\nif (!hits.length) return [{ json: { url: null } }];\nconst url = hits[0]?.videos?.large?.url || hits[0]?.videos?.medium?.url || hits[0]?.videos?.small?.url;\nreturn [{ json: { url, id: hits[0].id } }];"},
+      "id": "select", "name": "Select Clip", "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [2850, 500]
+    },
+    {
+      "parameters": {"jsCode": "const { execSync } = require('child_process');\nconst i = items[0].json;\nconst dir = `/workspace/video_assets/${i.video_id}/clips`;\nconst sz = `${i.width}x${i.height}`;\nexecSync(`mkdir -p ${dir}`, { shell: '/bin/bash' });\n\nif (!i.url) {\n  execSync(`ffmpeg -y -f lavfi -i color=c=black:s=${sz}:r=30 -t ${i.duration} -c:v libx264 -preset fast ${dir}/s_${i.index}.mp4`, { encoding: 'utf-8', timeout: 120000, shell: '/bin/bash' });\n  return [{ json: { path: `${dir}/s_${i.index}.mp4`, fallback: true } }];\n}\n\ntry {\n  execSync(`ffmpeg -y -i \"${i.url}\" -t ${i.duration} -vf scale=${sz}:force_original_aspect_ratio=decrease,pad=${sz}:(ow-iw)/2:(oh-ih)/2,setsar=1 -c:v libx264 -preset fast -an ${dir}/s_${i.index}.mp4`, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\n  return [{ json: { path: `${dir}/s_${i.index}.mp4` } }];\n} catch {\n  execSync(`ffmpeg -y -f lavfi -i color=c=black:s=${sz}:r=30 -t ${i.duration} -c:v libx264 -preset fast ${dir}/s_${i.index}.mp4`, { encoding: 'utf-8', timeout: 120000, shell: '/bin/bash' });\n  return [{ json: { path: `${dir}/s_${i.index}.mp4`, fallback: true } }];\n}"},
+      "id": "ffmpeg", "name": "FFmpeg Scene", "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [3050, 500]
+    },
+    {
+      "parameters": {"jsCode": "return items[0].json;"},
+      "id": "exit", "name": "Loop Exit", "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [3250, 500]
+    },
+    {
+      "parameters": {"method": "PATCH", "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}", "sendHeaders": true, "headerParameters": {"parameters": [{"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"}, {"name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]}, "sendBody": true, "specifyBody": "json", "jsonBody": "{\"status\": \"editing\", \"progress\": 60}"},
+      "id": "set-editing", "name": "Status: editing", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.4,
+      "position": [3450, 500]
+    },
+    {
+      "parameters": {"jsCode": "const { execSync } = require('child_process');\nconst i = items[0].json;\nconst dir = `/workspace/video_assets/${i.video_id}/clips`;\nconst files = execSync(`ls ${dir}/s_*.mp4 2>/dev/null | sort -V`, { encoding: 'utf-8', shell: '/bin/bash' }).trim();\nif (!files) throw new Error('Ingen scener');\nexecSync(`echo \"$files\" | sed \"s/^/file '/;s/$/'/\" > ${dir}/list.txt && ffmpeg -y -f concat -safe 0 -i ${dir}/list.txt -c:v libx264 -preset fast -c:a aac ${dir}/concat.mp4`, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\nreturn [{ json: { concat: `${dir}/concat.mp4` } }];"},
+      "id": "concat", "name": "FFmpeg Concat", "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [3650, 500]
+    },
+    {
+      "parameters": {"jsCode": "const { execSync } = require('child_process');\nconst i = items[0].json;\nconst v = i.video_id;\nconst u = i.user_id;\nconst dir = `/workspace/video_assets/${v}`;\nconst supabase = $env.SUPABASE_URL;\nconst key = $env.SUPABASE_SERVICE_ROLE_KEY;\n\ntry {\n  execSync(`ffmpeg -y -i \"${dir}/concat.mp4\" -i \"${dir}/voice.mp3\" -c:v copy -c:a aac -shortest \"${dir}/final.mp4\"`, { encoding: 'utf-8', timeout: 300000, shell: '/bin/bash' });\n} catch {\n  execSync(`cp \"${dir}/concat.mp4\" \"${dir}/final.mp4\"`);\n}\n\nconst path = `${u}/${v}/final.mp4`;\ntry {\n  execSync(`curl -sf -X POST \"${supabase}/storage/v1/object/videos/${path}\" -H \"Authorization: Bearer ${key}\" -H \"Content-Type: video/mp4\" --data-binary @\"${dir}/final.mp4\"`, { encoding: 'utf-8', timeout: 600000, shell: '/bin/bash' });\n} catch(e) { throw new Error('Upload: ' + e.message); }\nreturn [{ json: { url: `${supabase}/storage/v1/object/public/videos/${path}` } }];"},
+      "id": "upload", "name": "Upload to Supabase", "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [3850, 500]
+    },
+    {
+      "parameters": {"method": "PATCH", "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}", "sendHeaders": true, "headerParameters": {"parameters": [{"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"}, {"name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]}, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify({ status: 'complete', progress: 100, video_url: $json.url }) }}"},
+      "id": "complete", "name": "Status: complete", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.4,
+      "position": [4050, 500]
+    }
+  ],
+  "connections": {
+    "Webhook - Video Request": {"main": [[{"node": "Route by Platform", "type": "main", "index": 0}]]},
+    "Route by Platform": {"main": [[{"node": "Status: queued", "type": "main", "index": 0}]]},
+    "Status: queued": {"main": [[{"node": "Ack", "type": "main", "index": 0}]]},
+    "Ack": {"main": [[{"node": "Status: scripting", "type": "main", "index": 0}]]},
+    "Status: scripting": {"main": [[{"node": "Groq - Script", "type": "main", "index": 0}]]},
+    "Groq - Script": {"main": [[{"node": "Parse Script", "type": "main", "index": 0}]]},
+    "Parse Script": {"main": [[{"node": "Voice Map", "type": "main", "index": 0}]]},
+    "Voice Map": {"main": [[{"node": "Edge TTS", "type": "main", "index": 0}]]},
+    "Edge TTS": {"main": [[{"node": "Status: recording", "type": "main", "index": 0}]]},
+    "Status: recording": {"main": [[{"node": "Split Scenes", "type": "main", "index": 0}]]},
+    "Split Scenes": {"main": [[{"node": "Loop Scenes", "type": "main", "index": 0}]]},
+    "Loop Scenes": {"main": [[{"node": "Pixabay Search", "type": "main", "index": 0}], [{"node": "Loop Exit", "type": "main", "index": 0}]]},
+    "Pixabay Search": {"main": [[{"node": "Select Clip", "type": "main", "index": 0}]]},
+    "Select Clip": {"main": [[{"node": "FFmpeg Scene", "type": "main", "index": 0}]]},
+    "FFmpeg Scene": {"main": [[{"node": "Loop Scenes", "type": "main", "index": 0}]]},
+    "Loop Exit": {"main": [[{"node": "Status: editing", "type": "main", "index": 0}]]},
+    "Status: editing": {"main": [[{"node": "FFmpeg Concat", "type": "main", "index": 0}]]},
+    "FFmpeg Concat": {"main": [[{"node": "Upload to Supabase", "type": "main", "index": 0}]]},
+    "Upload to Supabase": {"main": [[{"node": "Status: complete", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"},
+  "active": true
+}

@@ -340,7 +340,7 @@ const DEFAULT_FORM: FormState = {
   prompt:         '',
   platform:       'tiktok',
   language:       'nb',
-  voiceId:        'XB0fDUnXU5powFXDhCwa',
+  voiceId:        'nb-NO-PernilleNeural',
   format:         '9:16',
   targetAudience: '',
 };

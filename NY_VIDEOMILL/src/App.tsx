@@ -17,11 +17,15 @@ import Agents from './pages/agents';
 import Studio from './pages/studio';
 import SeriesPage from './pages/series';
 import Onboarding, { useOnboarding } from './components/onboarding';
+import Billing from './pages/billing';
+import AdminDashboard from './pages/admin';
+import { useAdminRole } from './lib/hooks/useRoles';
 
 // ── Hash-based routing so F5 / direct URL keeps the correct page ──
 const VALID_PAGES: Page[] = [
   'dashboard', 'trends', 'production', 'library',
   'distribution', 'engagement', 'analytics', 'settings', 'bestilling', 'studio', 'series', 'agents',
+  'billing', 'admin',
 ];
 
 function getPageFromHash(): Page {
@@ -31,6 +35,7 @@ function getPageFromHash(): Page {
 
 function AppContent() {
   const { user, loading } = useAuth();
+  const { role: adminRole } = useAdminRole();
   const [currentPage, setCurrentPage] = useState<Page>(getPageFromHash);
   const { showOnboarding, completeOnboarding: dismissOnboarding } = useOnboarding();
 
@@ -65,6 +70,11 @@ function AppContent() {
   }
 
   const renderPage = () => {
+    // Admin pages - kun for ansatte med rolle
+    if (adminRole && currentPage === 'admin') {
+      return <AdminDashboard role={adminRole} onNavigate={handleNavigate} />;
+    }
+
     switch (currentPage) {
       case 'dashboard':    return <Dashboard onNavigate={handleNavigate} />;
       case 'bestilling':   return <Bestilling />;
@@ -78,6 +88,7 @@ function AppContent() {
       case 'series':       return <SeriesPage />;
       case 'settings':     return <Settings />;
       case 'agents':       return <Agents />;
+      case 'billing':      return <Billing />;
     }
   };
 

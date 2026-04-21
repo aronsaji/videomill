@@ -1,9 +1,10 @@
-import { Share2, TrendingUp, Users } from 'lucide-react';
+import { Share2, TrendingUp, Users, Youtube, Instagram, Monitor, RefreshCw, Eye, ExternalLink } from 'lucide-react';
 import { useVideos } from '../lib/hooks/uselivedata';
 import { useLanguage } from '../contexts/languageContext';
 import { StatsGrid } from '../components/StatsCard';
 import { PageHeader } from '../components/PageHeader';
 import { VideoCard } from '../components/VideoCard';
+import StatusBadge from '../components/statusbadge';
 
 function TikTokIcon({ size = 13 }: { size?: number }) {
   return (

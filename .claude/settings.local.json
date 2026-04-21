@@ -37,7 +37,14 @@
       "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Users\\\\saji_\\\\Downloads\\\\VideoMill\\\\NY_VIDEOMILL'; git diff src/pages/library.tsx | head -40\")",
       "Bash(gh api *)",
       "WebFetch(domain:videomill.vercel.app)",
-      "WebFetch(domain:openrouter.ai)"
+      "WebFetch(domain:openrouter.ai)",
+      "Bash(python3 -c ' *)",
+      "Bash(dir supabase\\\\functions /b)",
+      "Bash(dir src\\\\pages /b)",
+      "Bash(dir src\\\\lib\\\\hooks /b)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

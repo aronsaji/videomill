@@ -110,7 +110,7 @@ export interface AnalyticsSnapshot {
   date: string;
 }
 
-export type Page = 'dashboard' | 'trends' | 'production' | 'library' | 'distribution' | 'engagement' | 'analytics' | 'settings' | 'bestilling' | 'studio' | 'series' | 'agents';
+export type Page = 'dashboard' | 'trends' | 'production' | 'library' | 'distribution' | 'engagement' | 'analytics' | 'settings' | 'bestilling' | 'studio' | 'series' | 'agents' | 'billing' | 'admin';
 
 export interface Series {
   id: string;

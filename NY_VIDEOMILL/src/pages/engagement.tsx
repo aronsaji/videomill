@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import {
   MessageSquare, Bot, TrendingUp, Eye, Film,
-  RefreshCw, Zap,
+  RefreshCw, Zap, Youtube, Instagram, Monitor, ExternalLink, Link,
 } from 'lucide-react';
 import { useVideos, useTrends } from '../lib/hooks/uselivedata';
 import { useLanguage } from '../contexts/languageContext';
@@ -71,19 +71,17 @@ export default function Engagement() {
         ]}
       />
 
-      <PageHeader
-        title={t.engagement?.title || 'Engagement'}
-        subtitle={t.engagement?.sentiment || 'Comments and sentiment'}
-        icon={MessageSquare}
-        onRefresh={refresh}
-        loading={videosLoading}
-      />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        {platformBreakdown.map(([platform, data]) => (
+          <div key={platform} className="bg-[#111118] border border-white/6 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-xs text-white/50 font-medium capitalize">{platform}</p>
             </div>
             {videosLoading
               ? <div className="h-7 w-12 bg-white/5 rounded animate-pulse" />
-              : <p className="text-2xl font-bold text-white">{s.value}</p>
+              : <p className="text-2xl font-bold text-white">{data.count}</p>
             }
-            <p className="text-xs text-white/25 mt-1">{s.sub}</p>
+            <p className="text-xs text-white/25 mt-1">{data.views.toLocaleString()} visninger</p>
           </div>
         ))}
       </div>
@@ -163,7 +161,7 @@ export default function Engagement() {
                     {videoUrl && (
                       <a href={videoUrl} target="_blank" rel="noopener noreferrer"
                          className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-white/10 rounded-lg text-white/30 hover:text-white/60 transition-all">
-                        <ArrowUpRight size={13} />
+                        <ExternalLink size={13} />
                       </a>
                     )}
                   </div>

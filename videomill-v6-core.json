@@ -51,7 +51,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst videoId = item.video_id;\n\nconst prompt = `Create a viral video script about: ${item.topic || 'interesting topic'}. Return JSON with title, description, hashtags (array), scenes (array with narration, duration_seconds).`;\n\nreturn [{ json: { video_id: videoId, prompt: prompt } }];"
+        "jsCode": "const item = $input.first().json;\nconst videoId = item.video_id;\nconst userId = item.user_id || 'unknown';\n\nconsole.log('📌 Prepare Prompt:', { videoId, userId, topic: item.topic });\n\nconst prompt = `Create a viral video script about: ${item.topic || 'interesting topic'}. Return valid JSON with:\n- title (string)\n- description (string)\n- hashtags (array of strings)\n- scenes (array of objects, each with: narration, visual_description, duration_seconds, search_keywords array)\n\nCreate exactly 3-5 scenes, each 5-8 seconds. Use real content, no placeholders.`;\n\nreturn [{ json: { video_id: videoId, user_id: userId, prompt: prompt, topic: item.topic } }];"
       },
       "id": "prep-1",
       "name": "Prepare Prompt",
@@ -83,7 +83,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const content = $input.first().json.choices?.[0]?.message?.content || '{}';\nlet script = {};\ntry { script = JSON.parse(content); } catch { script = { title: 'Video', scenes: [] }; }\nreturn [{ json: { ...script, ...$input.first().json } }];"
+        "jsCode": "const content = $input.first().json.choices?.[0]?.message?.content || '{}';\nlet script = {};\n\ntry { script = JSON.parse(content); } catch(e) {\n  console.error('❌ Parse error:', e.message);\n  script = { title: 'Video', scenes: [] };\n}\n\nconst inputItem = $input.first().json;\nconst videoId = inputItem.video_id;\nconst userId = inputItem.user_id;\n\nconsole.log('✅ Script parsed:', { title: script.title, sceneCount: script.scenes?.length || 0, userId });\n\n// Default scenes if empty - this fixes the 0.05s video issue!\nif (!script.scenes || !Array.isArray(script.scenes) || script.scenes.length === 0) {\n  console.log('⚠️ Empty scenes - using defaults');\n  script.scenes = [\n    { narration: 'Welcome to this video', visual_description: 'Open with engaging intro', duration_seconds: 5, search_keywords: ['intro', 'modern'] },\n    { narration: 'Here is the main content', visual_description: 'Show relevant visuals', duration_seconds: 8, search_keywords: ['content', 'background'] },\n    { narration: 'Thanks for watching', visual_description: 'Closing screen with CTA', duration_seconds: 5, search_keywords: [' Outro', 'outro'] }\n  ];\n}\n\nreturn [{ json: { ...script, video_id: videoId, user_id: userId } }];"
       },
       "id": "parse-1",
       "name": "Parse Script",

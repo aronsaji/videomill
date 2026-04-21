@@ -178,13 +178,12 @@ return (
         ]}
       />
 
-      <PageHeader
-        title={t.analytics?.title || 'Analytics'}
-        subtitle={t.analytics?.last7Days || 'Performance data'}
-        icon={Eye}
-        onRefresh={refresh}
-        loading={loading}
-      />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {stats.map((stat, i) => (
+          <div key={i} className="bg-[#111118] border border-white/6 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-1">
+              {stat.icon}
+              <p className="text-xs text-white/50 font-medium">{stat.label}</p>
             </div>
             {loading
               ? <div className="h-7 w-14 bg-white/5 rounded animate-pulse" />

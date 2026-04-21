@@ -17,7 +17,7 @@
       "position": [450, 300],
       "parameters": {
         "method": "PATCH",
-        "url": "{{$env.SUPABASE_URL}}/rest/v1/videos?id=eq.{{$json.video_id}}",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
           {"name": "apikey", "value": "{{$env.SUPABASE_SERVICE_ROLE_KEY}}"},
@@ -43,7 +43,7 @@
       "position": [850, 300],
       "parameters": {
         "method": "PATCH",
-        "url": "{{$env.SUPABASE_URL}}/rest/v1/videos?id=eq.{{$json.video_id}}",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
         "sendHeaders": true,
         "headerParameters": {"parameters": [{"name": "apikey", "value": "{{$env.SUPABASE_SERVICE_ROLE_KEY}}"}]},
         "sendBody": true,
@@ -90,7 +90,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [1650, 300],
-      "parameters": {"method": "PATCH", "url": "{{$env.SUPABASE_URL}}/rest/v1/videos?id=eq.{{$json.video_id}}", "jsonBody": "{\"status\": \"recording\", \"progress\": 30}"}
+      "parameters": {"method": "PATCH", "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}", "jsonBody": "{\"status\": \"recording\", \"progress\": 30}"}
     },
     {
       "id": "pixabay",
@@ -122,7 +122,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [2250, 300],
-      "parameters": {"method": "PATCH", "url": "{{$env.SUPABASE_URL}}/rest/v1/videos?id=eq.{{$json.video_id}}", "jsonBody": "{\"status\": \"editing\", \"progress\": 60}"}
+      "parameters": {"method": "PATCH", "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}", "jsonBody": "{\"status\": \"editing\", \"progress\": 60}"}
     },
     {
       "id": "final",
@@ -140,7 +140,7 @@
       "position": [2650, 300],
       "parameters": {
         "method": "PATCH",
-        "url": "{{$env.SUPABASE_URL}}/rest/v1/videos?id=eq.{{$json.video_id}}",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
           {"name": "apikey", "value": "{{$env.SUPABASE_SERVICE_ROLE_KEY}}"}
@@ -171,7 +171,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [700, 600],
-      "parameters": {"method": "POST", "url": "{{$env.SUPABASE_URL}}/rest/v1/trending_topics", "jsonBody": "{\"title\": \"Trend\", \"active\": true}"}
+      "parameters": {"method": "POST", "url": "={{ $env.SUPABASE_URL }}/rest/v1/trending_topics", "jsonBody": "{\"title\": \"Trend\", \"active\": true}"}
     },
     {
       "id": "cron-comments",
@@ -187,7 +187,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [500, 900],
-      "parameters": {"method": "GET", "url": "{{$env.SUPABASE_URL}}/rest/v1/comments?limit=3"}
+      "parameters": {"method": "GET", "url": "={{ $env.SUPABASE_URL }}/rest/v1/comments?limit=3"}
     },
     {
       "id": "save-reply",
@@ -195,7 +195,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [700, 900],
-      "parameters": {"method": "POST", "url": "{{$env.SUPABASE_URL}}/rest/v1/comment_replies", "jsonBody": "{}"}
+      "parameters": {"method": "POST", "url": "={{ $env.SUPABASE_URL }}/rest/v1/comment_replies", "jsonBody": "{}"}
     }
   ],
   "connections": {

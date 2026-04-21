@@ -10,6 +10,70 @@
       "parameters": {"httpMethod": "POST", "path": "viranode-generate", "responseMode": "responseNode"}
     },
     {
+      "id": "extract",
+      "name": "Extract Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [350, 300],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "video_id",
+              "name": "video_id",
+              "value": "={{ $json.video_id }}",
+              "type": "string"
+            },
+            {
+              "id": "user_id",
+              "name": "user_id",
+              "value": "={{ $json.body.user_id }}",
+              "type": "string"
+            },
+            {
+              "id": "title",
+              "name": "title",
+              "value": "={{ $json.body.title }}",
+              "type": "string"
+            },
+            {
+              "id": "topic",
+              "name": "topic",
+              "value": "={{ $json.body.topic }}",
+              "type": "string"
+            },
+            {
+              "id": "language",
+              "name": "language",
+              "value": "={{ $json.body.language }}",
+              "type": "string"
+            },
+            {
+              "id": "platform",
+              "name": "platform",
+              "value": "={{ $json.body.platform }}",
+              "type": "string"
+            },
+            {
+              "id": "voice_id",
+              "name": "voice_id",
+              "value": "={{ $json.body.voice_id }}",
+              "type": "string"
+            },
+            {
+              "id": "aspect_ratio",
+              "name": "aspect_ratio",
+              "value": "={{ $json.body.aspect_ratio }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
       "id": "set-queued",
       "name": "Set queued",
       "type": "n8n-nodes-base.httpRequest",
@@ -65,7 +129,7 @@
           {"name": "Authorization", "value": "Bearer {{$env.GROQ_API_KEY}}"}
         ]},
         "sendBody": true,
-        "jsonBody": "{\"model\": \"llama-3.1-8b-instant\", \"messages\": [{\"role\": \"user\", \"content\": \"Lag et manus om: \" + $input.first().json.body.topic + \". Max 5 setninger.\"}], \"max_tokens\": 1000}"
+        "jsonBody": "{\"model\": \"llama-3.1-8b-instant\", \"messages\": [{\"role\": \"user\", \"content\": \"Lag et manus om: \" + $input.first().json.topic + \". Max 5 setninger.\"}], \"max_tokens\": 1000}"
       }
     },
     {

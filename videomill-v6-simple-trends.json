@@ -1,0 +1,1390 @@
+{
+  "name": "VideoMill v6.0 Complete",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vm-generate",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook-main",
+      "name": "Webhook - Video Request",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        -128,
+        200
+      ],
+      "typeVersion": 2.1
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst headers = $input.first().json.headers || {};\nconst secret = $env.N8N_HEADER_AUTH_VALUE;\nconst received = headers['x-videomill-auth'] || headers['x-viranode-secret'];\n\nif (secret && received !== secret) {\n  return [{ json: { error: 'Unauthorized', authorized: false } }];\n}\n\nconst item = body;\nconsole.log('\ud83d\udce5 mottatt:', { video_id: item.video_id, user_id: item.user_id, topic: item.topic });\n\nreturn [{ json: { ...item, authorized: true } }];"
+      },
+      "id": "check-auth",
+      "name": "Sjekk Auth",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        80,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": true
+            }
+          ]
+        }
+      },
+      "id": "if-unauthorized",
+      "name": "Autorisert?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        272,
+        200
+      ],
+      "typeVersion": 2.3
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "resp-401",
+      "name": "401 Unauthorized",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        464,
+        100
+      ],
+      "typeVersion": 1.5
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"status\": \"queued\", \"progress\": 5}",
+        "options": {}
+      },
+      "id": "update-queued",
+      "name": "Status: queued",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        544,
+        200
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\": \"ok\", \"message\": \"Bestilling mottatt\", \"video_id\": \"{{ $json.video_id }}\"}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "resp-200",
+      "name": "Svar 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        736,
+        200
+      ],
+      "typeVersion": 1.5
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"status\": \"scripting\", \"progress\": 10}",
+        "options": {}
+      },
+      "id": "update-scripting",
+      "name": "Status: scripting",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        928,
+        200
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\nconst prompt = `Lag et viral video-manus om: ${item.topic || 'interessant tema'}.\n\nKrav:\n- title (string)\n- description (string)\n- hashtags (array)\n- scenes (array med: narration, visual_description, duration_seconds, search_keywords)\n\n${item.language ? '- Spr\u00e5k: ' + item.language : ''}\n${item.target_audience ? '- M\u00e5lgruppe: ' + item.target_audience : ''}\n${item.platform ? '- Platform: ' + item.platform : ''}\n\nLag 3-5 scener, hver 5-10 sekunder. Ekte innhold, ingen placeholders.`;\n\nreturn [{ json: { ...item, prompt } }];"
+      },
+      "id": "prep-prompt",
+      "name": "Prepare Prompt",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1120,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.GROQ_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-8b-instant\",\n  \"messages\": [\n    {\"role\": \"system\", \"content\": \"Du er en viral video-script writer. Svar kun med gyldig JSON.\"},\n    {\"role\": \"user\", \"content\": \"{{ $json.prompt }}\"}\n  ],\n  \"max_tokens\": 2000\n}",
+        "options": {}
+      },
+      "id": "groq-script",
+      "name": "Groq - Generate Script",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1312,
+        200
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $input.first().json.choices?.[0]?.message?.content || '{}';\nlet script = {};\n\ntry { script = JSON.parse(content); } catch {\n  try {\n    const m = content.match(/\\[[\\s\\S]*\\]/);\n    if (m) script = JSON.parse(m[0]);\n  } catch { script = { title: 'Video', scenes: [] }; }\n}\n\nconst item = $input.first().json;\nconsole.log('\u2705 Manus:', { title: script.title, scener: script.scenes?.length || 0 });\n\nif (!script.scenes || !Array.isArray(script.scenes) || script.scenes.length === 0) {\n  console.log('\u26a0\ufe0f Bruker default scener');\n  script.scenes = [\n    { narration: 'Velkommen til denne videoen', visual_description: 'Intro', duration_seconds: 5, search_keywords: ['intro'] },\n    { narration: 'Hovedinnholdet presenteres her', visual_description: 'Hovedinnhold', duration_seconds: 8, search_keywords: ['content'] },\n    { narration: 'Takk for at du s\u00e5 p\u00e5!', visual_description: 'Outro', duration_seconds: 5, search_keywords: ['outro'] }\n  ];\n}\n\nreturn [{ json: { ...script, ...item } }];"
+      },
+      "id": "parse-script",
+      "name": "Parse Script",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1504,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\n\nconst voiceId = item.voice_id || '';\nconst lang = item.language || 'nb';\n\nconst voiceMap = {\n  nb: { id: 'CwhRBW8gmZU9ZJ8eXARK', name: 'Pernille' },\n  en: { id: 'pNInz6ob78DQ3FnoDB', name: 'Rachel' },\n  ta: { id: '5qApY1BkLwFxuDa2K6dX', name: 'Anjali' },\n  es: { id: 'gD3CwWQJqCN4XKjMWoGs', name: 'Sofia' },\n  de: { id: 'W8xi8E0MQ7dMTGrxu6dS', name: 'Lena' },\n  fr: { id: 'CRDBDmtRMJLF4Zxz4QdZ', name: 'Clara' },\n};\n\nlet ElevenVoice = voiceMap[lang] || voiceMap.nb;\nif (voiceId && voiceId.includes('eleven')) {\n  ElevenVoice = { id: voiceId, name: 'Custom' };\n}\n\nconst tts_type = item.tts_type || 'elevenlabs';\nconst tts_config = {\n  type: tts_type,\n  voice: ElevenVoice,\n  use_premium: tts_type === 'elevenlabs'\n};\n\nconsole.log('\ud83c\udfa4 TTS:', tts_config);\n\nreturn [{ json: { ...item, tts_config } }];"
+      },
+      "id": "voice-map",
+      "name": "Voice Map",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1696,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst videoId = item.video_id;\nconst tts = item.tts_config || { type: 'elevenlabs' };\nconst voice = tts.voice || { id: 'CwhRBW8gmZU9ZJ8eXARK', name: 'Pernille' };\n\nlet rawText = '';\nif (item.scenes && Array.isArray(item.scenes)) {\n  rawText = item.scenes.map(s => s.narration || '').filter(Boolean).join('. ');\n} else {\n  rawText = item.topic || item.title || 'VideoMill video';\n}\n\nconst cleanText = rawText.replace(/[\\\"'`$\\\\]/g, ' ').replace(/\\s+/g, ' ').trim().substring(0, 2000);\n\nif (tts.type === 'elevenlabs') {\n  return [{ json: { \n    ...item, \n    voice_method: 'elevenlabs',\n    voice_id: voice.id,\n    text: cleanText,\n    engine: 'elevenlabs'\n  }}];\n} else {\n  const edgeVoice = voice.name + 'Neural';\n  return [{ json: { \n    ...item, \n    voice_method: 'edge',\n    voice_id: edgeVoice,\n    text: cleanText,\n    engine: 'edge-tts'\n  }}];\n}"
+      },
+      "id": "select-tts",
+      "name": "Select TTS Engine",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1888,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst videoId = item.video_id;\n\nif (item.voice_method === 'elevenlabs') {\n  return [{ json: { ...item, eleven_api_call: true }}];\n} else {\n  return [{ json: { ...item, edge_call: true }}];\n}"
+      },
+      "id": "tts-prep",
+      "name": "TTS Prepare",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2080,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst video = item.scenes || [];\n\nconsole.log(`\ud83c\udfac ${video.length} scener \u00e5 prosessere`);\n\nif (video.length === 0) {\n  throw new Error('Ingen scener funnet');\n}\n\nreturn video.map((scene, index) => ({\n  json: {\n    ...item,\n    scene,\n    batchIndex: index,\n    duration_seconds: scene.duration_seconds || 5,\n    search_query: (scene.search_keywords && scene.search_keywords[0]) || item.topic || 'nature',\n  }\n}));"
+      },
+      "id": "split-scenes",
+      "name": "Split Scenes",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2272,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "loop-scenes",
+      "name": "Loop Scenes",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [
+        2464,
+        200
+      ],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.pexels.com/videos/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.search_query }}"
+            },
+            {
+              "name": "per_page",
+              "value": "3"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $env.PEXELS_API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pexels-search",
+      "name": "Pexels - Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        2656,
+        320
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const videos = $input.first().json.videos || [];\nif (!videos.length) return [{ json: { clip_url: null, clip_id: null } }];\nconst best = videos[0];\nconst hdFile = best.video_files.find(f => f.quality === 'hd') || best.video_files[0];\nreturn [{ json: { clip_url: hdFile.link, clip_id: best.id } }];"
+      },
+      "id": "select-clip",
+      "name": "Select Best Clip",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2848,
+        320
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst aspect = item.aspect_ratio || '9:16';\nconst dims = aspect === '16:9' ? '1920x1080' : (aspect === '1x1' ? '1080x1080' : '1080x1920');\nconst videoId = item.video_id || 'unknown';\nconst dir = `/workspace/video_assets/${videoId}`;\n\nreturn [{ json: { ...item, dims, dir } }];"
+      },
+      "id": "prep-ffmpeg",
+      "name": "Prep FFmpeg",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        3232,
+        320
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst duration = item.duration_seconds || 5;\nconst dims = item.dims || '1080x1920';\nconst dir = item.dir || `/workspace/video_assets/${videoId}`;\n\ntry { execSync(`mkdir -p ${dir}/scenes`, { shell: '/bin/bash' }); } catch {}\n\nif (!item.clip_url) {\n  const cmd = `ffmpeg -y -f lavfi -i color=c=black:size=${dims}:rate=30 -t ${duration} -c:v libx264 -preset fast ${dir}/scenes/scene_${item.batchIndex}.mp4`;\n  try { execSync(cmd, { encoding: 'utf-8', timeout: 60000, shell: '/bin/bash', stdio: 'ignore' }); } catch {}\n  return [{ json: { ...item, clip_generated: 'black', scene_path: `${dir}/scenes/scene_${item.batchIndex}.mp4` } }];\n}\n\nconst cmd = `ffmpeg -y -i \"${item.clip_url}\" -t ${duration} -vf \"scale=${dims.split('x')[0]}:${dims.split('x')[1]}:force_original_aspect_ratio=decrease,pad=${dims}:(ow-iw)/2:(oh-ih)/2\" -c:v libx264 -preset fast -an ${dir}/scenes/scene_${item.batchIndex}.mp4`;\ntry {\n  execSync(cmd, { encoding: 'utf-8', timeout: 120000, shell: '/bin/bash', stdio: 'ignore' });\n  return [{ json: { ...item, clip_generated: 'ok', scene_path: `${dir}/scenes/scene_${item.batchIndex}.mp4` } }];\n} catch(e) {\n  console.log('FFmpeg feilet:', e.message);\n  return [{ json: { ...item, clip_generated: 'failed' } }];\n}"
+      },
+      "id": "ffmpeg-create",
+      "name": "FFmpeg - Create Scene",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        3424,
+        320
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "loop-exit",
+      "name": "Loop Exit",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        3616,
+        320
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst videoId = item.video_id;\nconst dir = `/workspace/video_assets/${videoId}`;\n\nconst files = (() => {\n  try {\n    const fs = require('fs');\n    return fs.readdirSync(`${dir}/scenes`).filter(f => f.endsWith('.mp4'));\n  } catch { return []; }\n})();\n\nif (files.length === 0) throw new Error('Ingen scener funnet');\n\nfiles.sort((a, b) => {\n  const ai = parseInt(a.replace('scene_', '').replace('.mp4', ''));\n  const bi = parseInt(b.replace('scene_', '').replace('.mp4', ''));\n  return ai - bi;\n});\n\nconsole.log(`\ud83c\udfac Sl\u00e5r sammen ${files.length} scener`);\n\nreturn [{ json: { ...item, scene_files: files, count: files.length } }];"
+      },
+      "id": "collect-scenes",
+      "name": "Collect Scenes",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        3808,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst dir = `/workspace/video_assets/${videoId}`;\nconst files = item.scene_files || [];\n\nconst listFile = `${dir}/filelist.txt`;\nconst fileContent = files.map(f => `file '${dir}/scenes/${f}'`).join('\\n');\n\ntry { execSync(`echo \"${fileContent}\" > ${listFile}`, { shell: '/bin/bash' }); } catch {}\n\nconst cmd = `ffmpeg -y -f concat -safe 0 -i ${listFile} -c copy ${dir}/concat.mp4`;\ntry {\n  execSync(cmd, { encoding: 'utf-8', timeout: 120000, shell: '/bin/bash', stdio: 'ignore' });\n  return [{ json: { ...item, concat: 'ok' } }];\n} catch(e) {\n  throw new Error('Concat feilet: ' + e.message);\n}"
+      },
+      "id": "ffmpeg-concat",
+      "name": "FFmpeg - Concat",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        4000,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst dir = `/workspace/video_assets/${videoId}`;\n\nconst hasVoice = item.voice_method;\nif (hasVoice) {\n  const cmd = `ffmpeg -y -i ${dir}/concat.mp4 -i ${dir}/voiceover.mp3 -c:v copy -c:a aac -shortest ${dir}/merged.mp4`;\n  try {\n    execSync(cmd, { encoding: 'utf-8', timeout: 60000, shell: '/bin/bash', stdio: 'ignore' });\n    return [{ json: { ...item, merged: 'ok' } }];\n  } catch {}\n}\n\nreturn [{ json: { ...item, merged: 'skipped' } }];"
+      },
+      "id": "add-voiceover",
+      "name": "Add Voiceover",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        4192,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst hasMusic = item.include_music !== false;\nconst musicService = item.music_service || 'epidemic';\n\nif (!hasMusic) return [{ json: { ...item, music: 'disabled' } }];\n\nif (musicService === 'epidemic') {\n  return [{ json: { ...item, music: 'epidemic_pending' } }];\n} else {\n  return [{ json: { ...item, music: 'none' } }];\n}"
+      },
+      "id": "check-music",
+      "name": "Check Music",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        4384,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst dir = `/workspace/video_assets/${videoId}`;\nconst aspect = item.aspect_ratio || '9:16';\n\nconst baseFile = item.merged === 'ok' ? 'merged.mp4' : 'concat.mp4';\n\nconst formats = [\n  { ratio: '9:16', out: 'final_9x16.mp4', wh: '1080:1920' },\n  { ratio: '16:9', out: 'final_16x9.mp4', wh: '1920:1080' },\n  { ratio: '1x1', out: 'final_1x1.mp4', wh: '1080:1080' }\n];\n\nfor (const f of formats) {\n  if (f.ratio === aspect || aspect === 'all') {\n    const cmd = `ffmpeg -y -i ${dir}/${baseFile} -vf \"scale=${f.wh}:force_original_aspect_ratio=decrease,pad=${f.wh}:(ow-iw)/2:(oh-ih)/2\" -c copy ${dir}/${f.out}`;\n    try { execSync(cmd, { encoding: 'utf-8', timeout: 60000, shell: '/bin/bash', stdio: 'ignore' }); } catch {}\n  }\n}\n\nreturn [{ json: { ...item, scaled: 'ok' } }];"
+      },
+      "id": "ffmpeg-scale",
+      "name": "FFmpeg - Scale",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        4576,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const { execSync } = require('child_process');\nconst item = items[0].json;\nconst videoId = item.video_id;\nconst userId = item.user_id || 'default';\nconst dir = `/workspace/video_assets/${videoId}`;\nconst supabaseUrl = $env.SUPABASE_URL;\nconst serviceKey = $env.SUPABASE_SERVICE_ROLE_KEY;\n\nconst files = [\n  { name: 'final_9x16.mp4', key: 'video_url_9x16' },\n  { name: 'final_16x9.mp4', key: 'video_url_16x9' },\n  { name: 'final_1x1.mp4', key: 'video_url_1x1' }\n];\n\nconst uploaded = {};\n\nfor (const f of files) {\n  const path = `${dir}/${f.name}`;\n  try {\n    execSync(`test -f ${path}`, { shell: '/bin/bash' });\n    const storagePath = `${userId}/${videoId}/${f.name}`;\n    execSync(`curl -sf -X POST \"${supabaseUrl}/storage/v1/object/videos/${storagePath}\" -H \"Authorization: Bearer ${serviceKey}\" -H \"Content-Type: video/mp4\" --data-binary @\"${path}\"`, { encoding: 'utf-8', timeout: 300000 });\n    uploaded[f.key] = `${supabaseUrl}/storage/v1/object/public/videos/${storagePath}`;\n  } catch(e) {\n    console.log(`Upload ${f.name} feilet:`, e.message);\n  }\n}\n\nreturn [{ json: { ...item, ...uploaded, uploaded: true } }];"
+      },
+      "id": "upload-files",
+      "name": "Upload to Storage",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        4768,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"complete\",\n  \"progress\": 100,\n  \"video_url\": \"{{ $json.video_url_9x16 || $json.video_url_16x9 || '' }}\",\n  \"video_url_9x16\": \"{{ $json.video_url_9x16 }}\",\n  \"video_url_16x9\": \"{{ $json.video_url_16x9 }}\",\n  \"video_url_1x1\": \"{{ $json.video_url_1x1 }}\"\n}",
+        "options": {}
+      },
+      "id": "update-complete",
+      "name": "Status: Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        4960,
+        200
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const videoId = items[0].json.video_id || 'unknown';\nconst dir = `/workspace/video_assets/${videoId}`;\n\ntry {\n  require('child_process').execSync(`rm -rf ${dir}`, { shell: '/bin/bash', timeout: 10000 });\n  return [{ json: { cleanup: 'done' } }];\n} catch {\n  return [{ json: { cleanup: 'failed' } }];\n}"
+      },
+      "id": "cleanup",
+      "name": "Cleanup",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        5152,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "value": 6,
+              "unit": "hours"
+            }
+          ]
+        }
+      },
+      "id": "cron-trends",
+      "name": "Cron - Trends (6t)",
+      "type": "n8n-nodes-base.cron",
+      "position": [
+        -128,
+        600
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "values": {
+          "items": [
+            {
+              "name": "trends",
+              "stringValue": "[]"
+            }
+          ]
+        }
+      },
+      "id": "yt-rss",
+      "name": "YouTube RSS",
+      "type": "n8n-nodes-base.setNode",
+      "position": [
+        80,
+        600
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const xml = $input.first().json.data || '';\nconst titles = [...xml.matchAll(/<title>([^<]+)<\\/title>/g)].map(m => m[1]).filter(t => t !== 'YouTube').slice(0, 10);\n\nreturn [{ json: { titles: titles.join('\\n'), count: titles.length } }];"
+      },
+      "id": "parse-titles",
+      "name": "Parse Titles",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        272,
+        600
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.GROQ_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-8b-instant\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Kategoriser disse trender: \" + $json.titles + \"\\n\\nReturner JSON array: [{title, category, heat, tags}].\"}],\n  \"max_tokens\": 1000\n}",
+        "options": {}
+      },
+      "id": "groq-categorize",
+      "name": "Groq - Categorize",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        464,
+        600
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $input.first().json.choices?.[0]?.message?.content || '[]';\nlet trends = [];\ntry { trends = JSON.parse(content); } catch {\n  try { trends = JSON.parse(content.match(/\\[[\\s\\S]*\\]/)[0]); } catch { trends = []; }\n}\nreturn trends.map(t => ({ json: t }));"
+      },
+      "id": "parse-trends",
+      "name": "Parse Trends",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        656,
+        600
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/trending_topics",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $input.all().map(i => ({...i.json, active: true, updated_at: new Date().toISOString()})) }}",
+        "options": {}
+      },
+      "id": "insert-trends",
+      "name": "Insert Trends",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        848,
+        600
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "value": 10,
+              "unit": "minutes"
+            }
+          ]
+        }
+      },
+      "id": "cron-watchdog",
+      "name": "Cron - Watchdog (10m)",
+      "type": "n8n-nodes-base.cron",
+      "position": [
+        -128,
+        800
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?status=in.(queued,scripting,recording,editing)&limit=10",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-stuck",
+      "name": "Get Stuck Videos",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        80,
+        800
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const videos = $input.all().map(i => i.json).filter(v => {\n  const updated = new Date(v.updated_at || v.created_at);\n  return Date.now() - updated.getTime() > 30 * 60 * 1000;\n});\n\nif (videos.length === 0) {\n  return [{ json: { status: 'ingen_stuck', count: 0 } }];\n}\n\nconst results = videos.map(v => ({ json: { video_id: v.id, action: 'retry', title: v.title } }));\nconsole.log(`\ud83d\udc15 Watchdog: ${videos.length} videoer stuck`);\nreturn results;"
+      },
+      "id": "check-stuck",
+      "name": "Check Stuck",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        272,
+        800
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/videos?id=eq.{{ $json.video_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"status\": \"queued\", \"retry_count\": {{ $json.retry_count || 1 }}}",
+        "options": {}
+      },
+      "id": "retry-video",
+      "name": "Retry Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        464,
+        800
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "value": 30,
+              "unit": "minutes"
+            }
+          ]
+        }
+      },
+      "id": "cron-comments",
+      "name": "Cron - Comments (30m)",
+      "type": "n8n-nodes-base.cron",
+      "position": [
+        -128,
+        1000
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/comments?replied=eq.false&limit=5",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-comments",
+      "name": "Get Unreplied",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        80,
+        1000
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.GROQ_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-8b-instant\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Svar kort og vennlig p\u00e5 denne kommentaren: \" + $json.text}],\n  \"max_tokens\": 100\n}",
+        "options": {}
+      },
+      "id": "groq-reply",
+      "name": "Groq - Generate Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        272,
+        1000
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/comments?id=eq.{{ $json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"replied\": true, \"reply_text\": \"{{ $json.choices[0].message.content }}\"}",
+        "options": {}
+      },
+      "id": "save-reply",
+      "name": "Save Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        464,
+        1000
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst topic = item.topic || item.title || 'Video';\nconst hashtags = item.hashtags || [];\n\nconst prompt = `Lag en kort YouTube-beskrivelse for denne videoen: ${topic}. Hashtags: ${hashtags.join(' ')}. Maks 150 ord.`;\n\nreturn [{ json: { ...item, prompt } }];"
+      },
+      "id": "prep-promo",
+      "name": "Prep Promo",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        5328,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.GROQ_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-8b-instant\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"{{ $json.prompt }}\"}],\n  \"max_tokens\": 200\n}",
+        "options": {}
+      },
+      "id": "groq-promo",
+      "name": "Groq - Promo",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        5520,
+        200
+      ],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $input.first().json.choices?.[0]?.message?.content || '';\nconst item = $input.first().json;\nconst videoId = item.video_id;\n\nreturn [{ json: { ...item, promo_text: content } }];"
+      },
+      "id": "log-promo",
+      "name": "Log Promo",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        5712,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst musicEnabled = String($env.MUSIC_ENABLED || 'false').toLowerCase() === 'true';\n\nif (!musicEnabled) {\n  return [{ json: { ...item, music_added: false, music_skip: 'MUSIC_ENABLED=false' } }];\n}\n\nconst videoId = item.video_id;\nconst dir = `/workspace/video_assets/${videoId}`;\n\ntry {\n  require('child_process').execSync(`mkdir -p ${dir}`, { shell: '/bin/bash' });\n} catch {}\n\nconst musicUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';\n\ntry {\n  require('child_process').execSync(`wget -q -O ${dir}/music.mp3 \"${musicUrl}\"`, { shell: '/bin/bash', timeout: 30000 });\n  require('child_process').execSync(`ffmpeg -y -i ${dir}/merged.mp4 -i ${dir}/music.mp3 -filter_complex \"[1:a]volume=0.1[m];[0:a][m]amix=inputs=2:duration=first[a]\" -map 0:v -map \"[a]\" -c:v copy -c:a aac ${dir}/final_music.mp4`, { shell: '/bin/bash', timeout: 120000 });\n  require('child_process').execSync(`mv ${dir}/final_music.mp4 ${dir}/merged.mp4`, { shell: '/bin/bash' });\n  return [{ json: { ...item, music_added: true } }];\n} catch(e) {\n  console.log('Musikk feilet:', e.message);\n  return [{ json: { ...item, music_added: false, music_error: e.message } }];\n}"
+      },
+      "id": "add-music",
+      "name": "Add Music",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        4496,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst captionsEnabled = String($env.CAPTIONS_ENABLED || 'false').toLowerCase() === 'true';\n\nif (!captionsEnabled) {\n  return [{ json: { ...item, captions_added: false } }];\n}\n\nconst videoId = item.video_id;\nconst scenes = item.scenes || [];\nif (!scenes.length) return [{ json: { ...item, captions_added: false } }];\n\nconst dir = `/workspace/video_assets/${videoId}`;\nlet srt = '';\nlet t = 0;\n\nscenes.forEach((s, i) => {\n  const dur = s.duration_seconds || s.duration || 5;\n  const ts = d => {\n    const ms = Math.round((d % 1) * 1000);\n    const sec = Math.floor(d) % 60;\n    const min = Math.floor(d / 60) % 60;\n    const hr = Math.floor(d / 3600);\n    return String(hr).padStart(2,'0') + ':' + String(min).padStart(2,'0') + ':' + String(sec).padStart(2,'0') + ',' + String(ms).padStart(3,'0');\n  };\n  srt += (i+1) + '\\n' + ts(t) + ' --> ' + ts(t+dur) + '\\n' + (s.narration||'').substring(0,80) + '\\n\\n';\n  t += dur;\n});\n\ntry {\n  require('fs').writeFileSync(dir + '/subs.srt', srt);\n  require('child_process').execSync('ffmpeg -y -i ' + dir + '/merged.mp4 -vf \"subtitles=' + dir + '/subs.srt:force_style=FontSize=18,PrimaryColour=&Hffffff\" -c:a copy ' + dir + '/final_captions.mp4', { shell: '/bin/bash', timeout: 120000 });\n  require('child_process').execSync('mv ' + dir + '/final_captions.mp4 ' + dir + '/merged.mp4', { shell: '/bin/bash' });\n  return [{ json: { ...item, captions_added: true } }];\n} catch(e) {\n  console.log('Captions feilet:', e.message);\n  return [{ json: { ...item, captions_added: false } }];\n}"
+      },
+      "id": "add-captions",
+      "name": "Add Captions",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        4688,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst supabaseUrl = $env.SUPABASE_URL;\nconst serviceKey = $env.SUPABASE_SERVICE_ROLE_KEY;\n\nif (!item.is_series || !item.episode_id) {\n  return [{ json: { ...item, episode_updated: false, skip: 'not_series' } }];\n}\n\ntry {\n  const result = await this.helpers.httpRequest({\n    method: 'PATCH',\n    url: supabaseUrl + '/rest/v1/episodes?id=eq.' + item.episode_id,\n    headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey, 'Content-Type': 'application/json', Prefer: 'return=minimal' },\n    body: { status: 'complete', video_id: item.video_id, video_url: item.video_url_16x9 || item.video_url_9x16 || '' },\n    json: true\n  });\n  return [{ json: { ...item, episode_updated: true } }];\n} catch(e) {\n  console.log('Episode update feilet:', e.message);\n  return [{ json: { ...item, episode_updated: false } }];\n}"
+      },
+      "id": "update-episode",
+      "name": "Update Episode Status",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        5200,
+        200
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst supabaseUrl = $env.SUPABASE_URL;\nconst autoPublish = String($env.AUTO_PUBLISH || 'false').toLowerCase() === 'true';\n\nif (!autoPublish) {\n  return [{ json: { ...item, youtube_skip: 'AUTO_PUBLISH not enabled' } }];\n}\n\nconst videoUrl = item.video_url_16x9 || item.video_url_9x16 || '';\nif (!videoUrl || !item.video_id) {\n  return [{ json: { ...item, youtube_skip: 'no_video_url' } }];\n}\n\ntry {\n  const fnUrl = supabaseUrl.split('/rest/v1')[0] + '/functions/v1/youtube-upload';\n  const result = await this.helpers.httpRequest({\n    method: 'POST',\n    url: fnUrl,\n    headers: { 'Content-Type': 'application/json', 'X-Service-Key': $env.INTERNAL_SERVICE_KEY || '' },\n    body: {\n      user_id: item.user_id,\n      video_id: item.video_id,\n      video_url: videoUrl,\n      title: item.title || item.topic || 'VideoMill Video',\n      description: (item.scenes || []).map(s => s.narration || '').join(' ').substring(0, 500),\n      tags: item.hashtags || []\n    },\n    json: true\n  });\n  return [{ json: { ...item, youtube_result: result } }];\n} catch(e) {\n  console.log('YouTube upload feilet:', e.message);\n  return [{ json: { ...item, youtube_error: e.message } }];\n}"
+      },
+      "id": "auto-youtube",
+      "name": "Auto YouTube Upload",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        5392,
+        200
+      ],
+      "typeVersion": 2
+    }
+  ],
+  "connections": {
+    "Webhook - Video Request": {
+      "main": [
+        [
+          {
+            "node": "Sjekk Auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sjekk Secret": {
+      "main": [
+        [
+          {
+            "node": "Autorisert?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Autorisert?": {
+      "main": [
+        [
+          {
+            "node": "Status: queued",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "401 Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status: queued": {
+      "main": [
+        [
+          {
+            "node": "Svar 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Svar 200": {
+      "main": [
+        [
+          {
+            "node": "Status: scripting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status: scripting": {
+      "main": [
+        [
+          {
+            "node": "Prepare Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Prompt": {
+      "main": [
+        [
+          {
+            "node": "Groq - Generate Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq - Generate Script": {
+      "main": [
+        [
+          {
+            "node": "Parse Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Script": {
+      "main": [
+        [
+          {
+            "node": "Voice Map",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Voice Map": {
+      "main": [
+        [
+          {
+            "node": "Select TTS Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select TTS Engine": {
+      "main": [
+        [
+          {
+            "node": "TTS Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TTS Prepare": {
+      "main": [
+        [
+          {
+            "node": "Split Scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Scenes": {
+      "main": [
+        [
+          {
+            "node": "Loop Scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Scenes": {
+      "main": [
+        [
+          {
+            "node": "Collect Scenes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pexels - Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pexels - Search": {
+      "main": [
+        [
+          {
+            "node": "Select Best Clip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Best Clip": {
+      "main": [
+        [
+          {
+            "node": "Prep FFmpeg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep FFmpeg": {
+      "main": [
+        [
+          {
+            "node": "FFmpeg - Create Scene",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FFmpeg - Create Scene": {
+      "main": [
+        [
+          {
+            "node": "Loop Exit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Exit": {
+      "main": [
+        [
+          {
+            "node": "Loop Scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Scenes": {
+      "main": [
+        [
+          {
+            "node": "FFmpeg - Concat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FFmpeg - Concat": {
+      "main": [
+        [
+          {
+            "node": "Add Voiceover",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Voiceover": {
+      "main": [
+        [
+          {
+            "node": "Check Music",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Music": {
+      "main": [
+        [
+          {
+            "node": "FFmpeg - Scale",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FFmpeg - Scale": {
+      "main": [
+        [
+          {
+            "node": "Upload to Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Storage": {
+      "main": [
+        [
+          {
+            "node": "Status: Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status: Complete": {
+      "main": [
+        [
+          {
+            "node": "Prep Promo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Promo": {
+      "main": [
+        [
+          {
+            "node": "Groq - Promo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq - Promo": {
+      "main": [
+        [
+          {
+            "node": "Log Promo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Promo": {
+      "main": [
+        [
+          {
+            "node": "Cleanup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cron - Trends (6t)": {
+      "main": [
+        [
+          {
+            "node": "YouTube RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube RSS": {
+      "main": [
+        [
+          {
+            "node": "Parse Titles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Titles": {
+      "main": [
+        [
+          {
+            "node": "Groq - Categorize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq - Categorize": {
+      "main": [
+        [
+          {
+            "node": "Parse Trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Trends": {
+      "main": [
+        [
+          {
+            "node": "Insert Trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cron - Watchdog (10m)": {
+      "main": [
+        [
+          {
+            "node": "Get Stuck Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Stuck Videos": {
+      "main": [
+        [
+          {
+            "node": "Check Stuck",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Stuck": {
+      "main": [
+        [
+          {
+            "node": "Retry Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cron - Comments (30m)": {
+      "main": [
+        [
+          {
+            "node": "Get Unreplied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Unreplied": {
+      "main": [
+        [
+          {
+            "node": "Groq - Generate Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq - Generate Reply": {
+      "main": [
+        [
+          {
+            "node": "Save Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "vm-v6-fixed",
+  "versionId": "6.0"
+}

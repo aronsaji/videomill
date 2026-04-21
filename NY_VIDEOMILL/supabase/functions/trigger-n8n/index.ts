@@ -87,12 +87,23 @@ Deno.serve(async (req: Request) => {
     // ── 3. Parse body ──
     const body = await req.json();
 
-    // ── 4. Hent n8n-konfig fra user_settings ──
-    const { data: settings, error: settingsError } = await adminClient
-      .from("user_settings")
-      .select("n8n_webhook_url, n8n_enabled")
-      .eq("user_id", userId)
-      .maybeSingle();
+    // ── 4. Hent n8n-konfig fra user_settings (eller bruk env fallback) ──
+    const envWebhookUrl = Deno.env.get("N8N_WEBHOOK_URL") ?? "";
+    let settings: { n8n_webhook_url: string; n8n_enabled: boolean } | null = null;
+    let settingsError: { code: string } | null = null;
+    
+    if (envWebhookUrl) {
+      // Bruk miljøvariabel - hopp over database
+      settings = { n8n_webhook_url: envWebhookUrl, n8n_enabled: true };
+    } else {
+      const result = await adminClient
+        .from("user_settings")
+        .select("n8n_webhook_url, n8n_enabled")
+        .eq("user_id", userId)
+        .maybeSingle();
+      settings = result.data;
+      settingsError = result.error;
+    }
 
     if (settingsError) {
       console.error("[trigger-n8n] Settings fetch error:", settingsError.code);
@@ -101,27 +112,21 @@ Deno.serve(async (req: Request) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    if (!settings) {
-      return new Response(
-        JSON.stringify({ success: false, message: "Ingen n8n-innstillinger funnet. Lagre innstillingene dine først." }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Fallback til miljøvariabel hvis ikke satt i database
+    let webhookUrl = settings?.n8n_webhook_url;
+    if (!webhookUrl) {
+      webhookUrl = Deno.env.get("N8N_WEBHOOK_URL") ?? "";
     }
-    if (!settings.n8n_enabled) {
+    
+    if (!webhookUrl) {
       return new Response(
-        JSON.stringify({ success: false, message: "n8n-integrasjon er ikke aktivert i innstillingene." }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!settings.n8n_webhook_url) {
-      return new Response(
-        JSON.stringify({ success: false, message: "Webhook-URL mangler. Lim inn URL fra n8n Production-trigger." }),
+        JSON.stringify({ success: false, message: "n8n webhook ikke konfigurert." }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // ── 5. Valider webhook-URL ──
-    if (!isValidWebhookUrl(settings.n8n_webhook_url)) {
+    if (!isValidWebhookUrl(webhookUrl)) {
       return new Response(
         JSON.stringify({ success: false, message: "Ugyldig webhook-URL. Bruk HTTPS-URL fra n8n Cloud." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -157,7 +162,7 @@ Deno.serve(async (req: Request) => {
     // ── 7. Send til n8n ──
     let n8nResponse: Response;
     try {
-      n8nResponse = await fetch(settings.n8n_webhook_url, {
+      n8nResponse = await fetch(webhookUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -176,7 +181,7 @@ Deno.serve(async (req: Request) => {
 
       const isTimeout   = msg.includes("timed out") || msg.includes("timeout");
       const isRefused   = msg.includes("refused")   || msg.includes("ECONNREFUSED");
-      const isLocalhost = settings.n8n_webhook_url.includes("localhost") || settings.n8n_webhook_url.includes("127.0.0.1");
+      const isLocalhost = webhookUrl.includes("localhost") || webhookUrl.includes("127.0.0.1");
 
       let userMessage = `Klarte ikke nå n8n: ${msg}`;
       if (isTimeout) userMessage = "Timeout — n8n svarte ikke innen 10 sekunder.";

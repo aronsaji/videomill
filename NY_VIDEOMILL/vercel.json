@@ -1,7 +1,7 @@
 {
-  "framework": "vite",
-  "installCommand": "npm install --include=dev",
-  "buildCommand": "./node_modules/.bin/vite build",
+  "framework": null,
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
     {

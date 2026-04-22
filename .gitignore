@@ -1,0 +1,48 @@
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+
+# Lokale miljøvariabler — aldri commit disse
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.staging
+
+# Supabase lokale hemmeligheter
+supabase/.env
+supabase/.env.local
+supabase/functions/.env
+
+# Vite temp-filer
+*.local
+vite.config.ts.timestamp-*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Sertifikater og nøkkelfiler (sikkerhetsnett)
+*.pem
+*.key
+*.p12
+*.pfx
+
+.vercel
+.env*.local

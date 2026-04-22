@@ -1,0 +1,75 @@
+{
+  "name": "VideoMill Ultimate v6 - Fixed",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// TREND AGENT - Fixed syntax\nconst item = items[0]?.json || {};\nconst body = item.body || item;\n\nconst prompt = `Analyze: ${body.topic || 'auto-trend'}. Return JSON: {category, viral_score, platform, audience, hashtags}`;\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'https://api.groq.com/openai/v1/chat/completions',\n  headers: { 'Authorization': 'Bearer ' + $env.GROQ_API_KEY, 'Content-Type': 'application/json' },\n  body: { model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], temperature: 0.3 },\n  json: true\n});\n\nlet decision = {};\ntry { decision = JSON.parse(response.choices?.[0]?.message?.content || '{}'); } catch {}\n\nreturn [{ json: { ...body, agent: 'TREND_AGENT', category: decision.category || 'tech', viral_score: decision.viral_score || 85, platform_recommendation: decision.platform || 'tiktok', target_audience: decision.audience || '18-35', hashtags: decision.hashtags || ['trending'] }}];"
+      },
+      "name": "🤖 TREND AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [1700, 3000],
+      "typeVersion": 2,
+      "id": "trend-agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// SCRIPT AGENT - Fixed syntax\nconst item = items[0]?.json || {};\n\nconst prompt = `Create viral script about: ${item.topic || 'trending'}. Platform: ${item.platform_recommendation || 'tiktok'}. Return JSON: {title, scenes: [{narration, visual_description, duration_seconds}]}`;\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'https://api.groq.com/openai/v1/chat/completions',\n  headers: { 'Authorization': 'Bearer ' + $env.GROQ_API_KEY, 'Content-Type': 'application/json' },\n  body: { model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], max_tokens: 2000, temperature: 0.7 },\n  json: true\n});\n\nlet script = {};\ntry { script = JSON.parse(response.choices?.[0]?.message?.content || '{}'); } catch {}\n\nreturn [{ json: { ...item, script, agent: 'SCRIPT_AGENT' }}];"
+      },
+      "name": "📝 SCRIPT AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [1900, 3000],
+      "typeVersion": 2,
+      "id": "script-agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// VISION AGENT - Fixed syntax\nconst item = items[0]?.json || {};\nconst scenes = item.script?.scenes || [];\n\nconst processed = scenes.map((scene, i) => ({\n  scene_index: i,\n  narration: scene.narration,\n  visual_description: scene.visual_description,\n  search_query: scene.visual_description?.split(' ').slice(0,5).join(' ') || 'trending',\n  resolution: '4K'\n}));\n\nreturn [{ json: { ...item, scenes: processed, agent: 'VISION_AGENT' }}];"
+      },
+      "name": "👁️ VISION AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [2100, 3000],
+      "typeVersion": 2,
+      "id": "vision-agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// AUDIO AGENT - Fixed syntax\nconst item = items[0]?.json || {};\nconst lang = item.language || 'nb';\n\nconst voiceMap = { nb: 'nb-NO-PernilleNeural', en: 'XB0fDUnXU5powFXDhCwa', ta: 'ta-IN-PallaviNeural', es: 'es-ES-ElviraNeural' };\n\nreturn [{ json: { ...item, voice_id: voiceMap[lang] || voiceMap.nb, music_type: 'upbeat', agent: 'AUDIO_AGENT' }}];"
+      },
+      "name": "🎵 AUDIO AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [2300, 3000],
+      "typeVersion": 2,
+      "id": "audio-agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// PLATFORM AGENT - Fixed syntax\nconst item = items[0]?.json || {};\nconst platform = item.platform_recommendation || 'tiktok';\n\nconst rules = {\n  tiktok: { aspect: '9:16', duration: 60, hashtags: 3 },\n  youtube: { aspect: '16:9', duration: 480, hashtags: 5 },\n  instagram: { aspect: '9:16', duration: 30, hashtags: 10 }\n};\n\nreturn [{ json: { ...item, platform_rules: rules[platform] || rules.tiktok, agent: 'PLATFORM_AGENT' }}];"
+      },
+      "name": "📱 PLATFORM AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [2500, 3000],
+      "typeVersion": 2,
+      "id": "platform-agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// QUALITY AGENT - Fixed syntax\nconst item = items[0]?.json || {};\n\nconst quality_score = item.scenes?.length > 0 ? 95 : 50;\n\nreturn [{ json: { ...item, quality_score, quality_approved: quality_score >= 80, agent: 'QUALITY_AGENT' }}];"
+      },
+      "name": "✅ QUALITY AGENT",
+      "type": "n8n-nodes-base.code",
+      "position": [2700, 3000],
+      "typeVersion": 2,
+      "id": "quality-agent"
+    }
+  ],
+  "connections": {
+    "🤖 TREND AGENT": { "main": [[{ "node": "📝 SCRIPT AGENT", "type": "main", "index": 0 }]] },
+    "📝 SCRIPT AGENT": { "main": [[{ "node": "👁️ VISION AGENT", "type": "main", "index": 0 }]] },
+    "👁️ VISION AGENT": { "main": [[{ "node": "🎵 AUDIO AGENT", "type": "main", "index": 0 }]] },
+    "🎵 AUDIO AGENT": { "main": [[{ "node": "📱 PLATFORM AGENT", "type": "main", "index": 0 }]] },
+    "📱 PLATFORM AGENT": { "main": [[{ "node": "✅ QUALITY AGENT", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "versionId": "v6-fixed",
+  "id": "videomill-v6"
+}

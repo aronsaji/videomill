@@ -199,7 +199,7 @@ export default function Engagement() {
                   </div>
                   <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all duration-700"
+                      className="h-full rounded-full bg-gradient-to-r from-teal-500 to-teal-400 transition-all duration-700"
                       style={{ width: `${(data.count / (platformBreakdown[0][1].count)) * 100}%` }}
                     />
                   </div>

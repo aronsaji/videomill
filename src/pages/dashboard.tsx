@@ -419,7 +419,7 @@ stat.color === 'violet'? 'bg-violet-500/15 text-violet-400' :
             {agentLogs.slice(0, 5).map(log => {
               const agentColors: Record<string, string> = {
                 COO: 'text-blue-400', CFO: 'text-emerald-400', Marketing: 'text-purple-400',
-                CISO: 'text-red-400', ErrorFixer: 'text-amber-400', SocialResponse: 'text-cyan-400',
+                CISO: 'text-red-400', ErrorFixer: 'text-amber-400', SocialResponse: 'text-teal-400',
                 watchdog: 'text-orange-400', trend_hunter: 'text-violet-400', promoter: 'text-pink-400',
               };
               const color = agentColors[log.agent_id] ?? 'text-white/50';

@@ -513,6 +513,98 @@ body {
   animation: activePulse 2s ease-in-out infinite;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   WOW PAGE WRAPPER - Auto-applies to all pages
+═════════════════════════════════════════════════════════════ */
+.wow-page {
+  position: relative;
+  min-height: 100vh;
+  background: #050505;
+}
+
+.wow-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 20% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(20, 184, 166, 0.06) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wow-page::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(139, 92, 246, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 92, 246, 0.02) 1px, transparent 1px);
+  background-size: 50px 50px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+}
+
+/* WOW Page Content */
+.wow-content {
+  position: relative;
+  z-index: 10;
+  padding: 1.5rem;
+}
+
+/* WOW Card - automatically applied to cards */
+.wow-card {
+  background: rgba(5, 5, 5, 0.6);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  backdrop-filter: blur(20px);
+  transition: all 0.3s ease;
+}
+
+.wow-card:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(139, 92, 246, 0.1);
+}
+
+/* WOW Section */
+.wow-section {
+  position: relative;
+  background: rgba(5, 5, 5, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 1.5rem;
+  padding: 2rem;
+  backdrop-filter: blur(20px);
+}
+
+/* Page title with gradient */
+.wow-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 0.5rem;
+}
+
+.wow-subtitle {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Fix old backgrounds globally */
+body > div:first-child,
+[class*="bg-[#0"] {
+  background: #050505 !important;
+}
+
+.bg-\[#0e0e18\],
+.bg-\[#070710\],
+.bg-\[#111118\],
+.bg-\[#111118\]:hover {
+  background: rgba(5, 5, 5, 0.6) !important;
+}
+
 .btn-ghost, .btn-violet, .btn-teal {
   display: inline-flex;
   align-items: center;

@@ -1002,7 +1002,7 @@ export default function Bestilling() {
                             className={`h-full rounded-full transition-all duration-700 ${
                               progress === 0
                                 ? 'bg-white/20 animate-pulse w-full'
-                                : 'bg-gradient-to-r from-teal-500 to-cyan-400'
+                                : 'bg-gradient-to-r from-teal-500 to-teal-400'
                             }`}
                             style={progress > 0 ? { width: `${progress}%` } : {}}
                           />

@@ -227,7 +227,7 @@ export default function Trends({ onNavigate }: Props) {
                 {/* Viral score bar */}
                 <div className="mt-3 ml-16 h-1 bg-white/4 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-teal-500 to-cyan-400 rounded-full"
+                    className="h-full bg-gradient-to-r from-teal-500 to-teal-400 rounded-full"
                     style={{ width: `${Math.min(trend.viral_score ?? 0, 100)}%` }}
                   />
                 </div>

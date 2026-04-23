@@ -117,7 +117,7 @@ export default function Distribution() {
                         </div>
                         <div className="h-1 bg-white/6 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-gradient-to-r from-teal-500 to-cyan-400 rounded-full transition-all duration-700"
+                            className="h-full bg-gradient-to-r from-teal-500 to-teal-400 rounded-full transition-all duration-700"
                             style={{ width: `${video.progress ?? 0}%` }}
                           />
                         </div>

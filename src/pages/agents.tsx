@@ -66,7 +66,7 @@ const AGENT_CONFIG = {
     name: 'Social Response',
     title: 'Social Media Agent',
     icon: MessageSquare,
-    color: 'text-cyan-400',
+    color: 'text-teal-400',
     bg: 'bg-violet-500/10',
     border: 'border-violet-500/30',
     accent: 'from-violet-500/20 to-violet-600/10',
@@ -284,8 +284,8 @@ function SocialResponseCard({ response }: { response: any }) {
   return (
     <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
-        <MessageSquare className="w-4 h-4 text-cyan-400" />
-        <span className="text-sm font-medium text-cyan-400">Svar sendt</span>
+        <MessageSquare className="w-4 h-4 text-teal-400" />
+        <span className="text-sm font-medium text-teal-400">Svar sendt</span>
         <span className="text-xs text-white/30 ml-auto">
           {new Date(response.created_at).toLocaleString('nb-NO')}
         </span>
@@ -654,7 +654,7 @@ export default function Agents() {
 
       {/* Social Responses */}
       <div>
-        <h2 className="text-lg font-semibold text-cyan-400 mb-3 flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-teal-400 mb-3 flex items-center gap-2">
           <MessageSquare className="w-5 h-5" />
           Sosiale medier-svar
           <span className="text-xs text-white/30 font-normal">
@@ -703,8 +703,8 @@ export default function Agents() {
             <span><strong className="text-amber-400">Error Fixer</strong> - 15m</span>
           </div>
           <div className="flex items-center gap-2">
-            <MessageSquare className="w-3 h-3 text-cyan-400" />
-            <span><strong className="text-cyan-400">Social</strong> - Webhook</span>
+            <MessageSquare className="w-3 h-3 text-teal-400" />
+            <span><strong className="text-teal-400">Social</strong> - Webhook</span>
           </div>
           <div className="flex items-center gap-2">
             <Radar className="w-3 h-3 text-orange-400" />

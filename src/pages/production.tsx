@@ -138,7 +138,7 @@ function ProductionCard({ prod, lang }: CardProps) {
             </div>
             <div className="h-1.5 bg-white/6 rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-teal-500 to-cyan-400"
+                className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-teal-500 to-teal-400"
                 style={{ width: `${prod.progress}%` }}
               />
             </div>

@@ -228,7 +228,7 @@ return (
                   <span className="text-xs text-white/50 capitalize w-20 flex-shrink-0 truncate">{platform}</span>
                   <div className="flex-1 h-2 bg-white/6 rounded-full overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-400"
+                      className="h-full rounded-full bg-gradient-to-r from-teal-500 to-teal-400"
                       style={{ width: `${(count / (platformStats[0][1])) * 100}%` }}
                     />
                   </div>
@@ -273,7 +273,7 @@ return (
                   </p>
                   <div className="h-1.5 bg-white/6 rounded-full overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all duration-700"
+                      className="h-full rounded-full bg-gradient-to-r from-teal-500 to-teal-400 transition-all duration-700"
                       style={{ width: `${((video.views ?? 0) / maxVideoViews) * 100}%` }}
                     />
                   </div>

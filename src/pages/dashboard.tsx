@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Zap, Activity, Database, LayoutGrid, Play, 
-  Clock, CheckCircle, FileText, Video, Image,
-  Plus, ArrowRight, Sparkles, TrendingUp
+  Zap, Activity, Database, Play, Clock, 
+  CheckCircle, FileText, Video, Image,
+  Plus, ArrowRight, Sparkles, TrendingUp, AlertTriangle
 } from 'lucide-react';
 import { useVideos, useTrends } from '../lib/hooks/uselivedata';
-import { useLanguage } from '../contexts/languageContext';
 import { Page } from '../lib/types';
+import AnimatedLogo from '../components/AnimatedLogo';
+import FactoryStatusBar from '../components/FactoryStatusBar';
 
 interface DashboardProps {
   onNavigate: (page: Page) => void;
@@ -36,9 +37,14 @@ const PIPELINE_STEPS = [
 ];
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
-  const { t } = useLanguage();
   const { data: videos } = useVideos();
-  const { data: trends } = useTrends();
+  
+  // Simulated job state - in production this comes from Supabase Realtime
+  const [currentJob, setCurrentJob] = useState({
+    progress: 65,
+    status: 'processing' as const,
+    currentStep: 'FFmpeg Rendering'
+  });
 
   return (
     <motion.div 
@@ -51,24 +57,27 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       <div className="fixed inset-0 bg-gradient-to-br from-violet-900/10 to-teal-900/10 pointer-events-none" />
       
       <div className="relative z-10 max-w-[1600px] mx-auto space-y-6">
-        {/* Header */}
+        {/* Header with AnimatedLogo */}
         <div className="flex justify-between items-end">
-          <div>
-            <motion.h1 
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              className="text-4xl font-light tracking-tight text-white"
-            >
-              Mission Control
-            </motion.h1>
-            <motion.p 
-              initial={{ y: -10, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="text-teal-400 font-mono text-xs uppercase tracking-[0.2em] mt-2"
-            >
-              Autonomous Video Factory • Active
-            </motion.p>
+          <div className="flex items-end gap-6">
+            <AnimatedLogo />
+            <div>
+              <motion.h1 
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                className="text-4xl font-light tracking-tight text-white"
+              >
+                Mission Control
+              </motion.h1>
+              <motion.p 
+                initial={{ y: -10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.1 }}
+                className="text-teal-400 font-mono text-xs uppercase tracking-[0.2em] mt-2"
+              >
+                Autonomous Video Factory • Active
+              </motion.p>
+            </div>
           </div>
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -111,42 +120,18 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </div>
           </motion.div>
 
-          {/* Live Pipeline - Side Panel */}
+          {/* Factory Status Bar - WOW Component */}
           <motion.div 
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
-            className="col-span-4 bg-[#0A0A0A]/80 border border-white/10 rounded-3xl p-6 backdrop-blur-xl"
+            className="col-span-4"
           >
-            <h3 className="font-medium mb-6 text-white flex items-center gap-2">
-              <Activity className="text-teal-400" size={18} />
-              Live Pipeline
-            </h3>
-            
-            <div className="space-y-4">
-              {PIPELINE_STEPS.map((step, index) => (
-                <div key={step.id} className="flex items-center gap-4">
-                  <div className={`w-2 h-2 rounded-full ${
-                    step.status === 'active' ? 'bg-teal-400 animate-pulse' : 
-                    step.status === 'complete' ? 'bg-violet-400' : 'bg-white/10'
-                  }`} />
-                  <div className="flex-1">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className={step.status !== 'pending' ? 'text-white' : 'text-white/40'}>{step.label}</span>
-                      <span className="text-xs text-white/40">{step.progress}%</span>
-                    </div>
-                    <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                      <motion.div 
-                        className="h-full bg-gradient-to-r from-violet-500 to-teal-400"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${step.progress}%` }}
-                        transition={{ delay: 0.5 + index * 0.1 }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <FactoryStatusBar 
+              progress={currentJob.progress}
+              status={currentJob.status}
+              currentStep={currentJob.currentStep}
+            />
           </motion.div>
 
           {/* Stats Grid */}

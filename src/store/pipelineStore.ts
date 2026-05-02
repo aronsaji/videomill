@@ -73,7 +73,7 @@ export const usePipelineStore = create<StoreState>((set, get) => ({
   trends: [],
   isLoading: false,
 
-  addOrder: (orderData) => {
+  addOrder: async (orderData) => {
     const newOrder: Order = {
       id: Math.random().toString(36).substring(7),
       video_id: `VM-${Math.floor(Math.random() * 1000) + 8000}`,
@@ -91,12 +91,25 @@ export const usePipelineStore = create<StoreState>((set, get) => ({
       status: 'queued',
       progress: 0,
       retry_count: 0,
-      user_id: 'sys',
+      user_id: 'sys', // This will fail RLS if not authenticated, need to address auth soon
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       ...orderData
     } as Order;
+
     set(state => ({ orders: [newOrder, ...state.orders] }));
+
+    if (!IS_MOCK) {
+      try {
+        const { id, user_id, ...orderWithoutIds } = newOrder; // Remove invalid mock IDs
+        const { error } = await supabase.from('orders').insert([orderWithoutIds]);
+        if (error) {
+          console.error('Failed to insert order to Supabase:', error);
+        }
+      } catch (err) {
+        console.error('Error inserting order:', err);
+      }
+    }
   },
 
   fetchInitialData: async () => {

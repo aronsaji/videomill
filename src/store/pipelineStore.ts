@@ -108,6 +108,7 @@ export const usePipelineStore = create<StoreState>((set, get) => ({
         const { error } = await supabase.from('orders').insert(orderWithoutId as any);
         if (error) {
           console.error('Failed to insert order to Supabase:', error);
+          alert('DATABASE ERROR:\n' + error.message + '\n\nDetails: ' + error.details);
         }
       } catch (err) {
         console.error('Error inserting order:', err);

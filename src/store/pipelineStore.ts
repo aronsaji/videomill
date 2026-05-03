@@ -104,8 +104,8 @@ export const usePipelineStore = create<StoreState>((set, get) => ({
 
     if (!IS_MOCK) {
       try {
-        const { id, user_id, ...orderWithoutIds } = newOrder; // Remove invalid mock IDs
-        const { error } = await supabase.from('orders').insert(orderWithoutIds as any);
+        const { id, ...orderWithoutId } = newOrder; // Remove invalid mock ID, let DB generate UUID
+        const { error } = await supabase.from('orders').insert(orderWithoutId as any);
         if (error) {
           console.error('Failed to insert order to Supabase:', error);
         }

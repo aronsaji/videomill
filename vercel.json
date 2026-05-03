@@ -1,0 +1,10 @@
+{
+  "redirects": [
+    { "source": "/orders", "destination": "/#/orders", "permanent": false },
+    { "source": "/autoseries", "destination": "/#/autoseries", "permanent": false },
+    { "source": "/agents", "destination": "/#/agents", "permanent": false },
+    { "source": "/library", "destination": "/#/library", "permanent": false },
+    { "source": "/analytics", "destination": "/#/analytics", "permanent": false },
+    { "source": "/settings", "destination": "/#/settings", "permanent": false }
+  ]
+}

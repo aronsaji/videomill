@@ -6,6 +6,7 @@
 
 @layer base {
   body {
+    /* Cache buster: 1 */
     @apply bg-background text-gray-200 antialiased font-sans;
   }
 }

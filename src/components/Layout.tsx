@@ -28,9 +28,10 @@ interface LayoutProps {
   children: React.ReactNode;
   currentPage: Page;
   onNavigate: (page: Page) => void;
+  onLogout: () => void;
 }
 
-export const Layout = ({ children, currentPage, onNavigate }: LayoutProps) => {
+export const Layout = ({ children, currentPage, onNavigate, onLogout }: LayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
@@ -126,7 +127,7 @@ export const Layout = ({ children, currentPage, onNavigate }: LayoutProps) => {
             <Settings size={18} className="flex-shrink-0" />
             {sidebarOpen && <span className="text-sm font-medium">Innstillinger</span>}
           </button>
-          <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-gray-500 hover:text-red-400 hover:bg-red-500/5 w-full text-left">
+          <button onClick={onLogout} className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-gray-500 hover:text-red-400 hover:bg-red-500/5 w-full text-left">
             <LogOut size={18} className="flex-shrink-0" />
             {sidebarOpen && <span className="text-sm font-medium">Logg ut</span>}
           </button>
@@ -157,7 +158,7 @@ export const Layout = ({ children, currentPage, onNavigate }: LayoutProps) => {
               <span className="w-1.5 h-1.5 bg-neon-cyan rounded-full animate-pulse" />
               SYSTEM ONLINE
             </div>
-            <button className="relative text-gray-500 hover:text-gray-300 transition-colors">
+            <button onClick={() => alert('Ingen nye varsler akkurat nå.')} className="relative text-gray-500 hover:text-gray-300 transition-colors">
               <Bell size={18} />
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-neon-amber rounded-full" />
             </button>

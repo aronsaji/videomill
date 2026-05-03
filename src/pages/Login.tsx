@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Globe, ArrowLeft, Mail } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import Logo from '../components/Logo';
 
 function GoogleIcon() {
@@ -15,7 +16,7 @@ function GoogleIcon() {
 
 type Mode = 'login' | 'register' | 'forgot';
 
-export default function Login({ onLogin }: { onLogin: () => void }) {
+export default function Login({ onSuccess }: { onSuccess: () => void }) {
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,19 +29,63 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate login delay
-    setTimeout(() => {
+    try {
+      if (mode === 'register') {
+        if (password !== confirmPassword) {
+          alert('Passordene stemmer ikke overens!');
+          setLoading(false);
+          return;
+        }
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name: name,
+            }
+          }
+        });
+        if (error) throw error;
+        alert('Sjekk e-posten din for bekreftelseslenke!');
+      } else if (mode === 'forgot') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        if (error) throw error;
+        alert('Tilbakestillingslenke sendt til e-posten din!');
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        if (!data?.session) {
+          throw new Error('Innlogging mislyktes. Sjekk at Supabase er konfigurert riktig.');
+        }
+        onSuccess();
+      }
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
       setLoading(false);
-      onLogin(); // Mock login success
-    }, 1500);
+    }
   };
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
-    setTimeout(() => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (error: any) {
+      alert(error.message);
       setGoogleLoading(false);
-      onLogin();
-    }, 1500);
+    }
   };
 
   const switchMode = (newMode: Mode) => {

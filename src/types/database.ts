@@ -65,6 +65,77 @@ export interface Database {
           user_id?: string
         }
       }
+      orders: {
+        Row: {
+          id: string
+          user_id: string
+          video_id: string
+          title: string
+          topic: string | null
+          category: string
+          visual_style: string
+          style_tone: string
+          target_audience: string
+          video_format: string
+          ai_voice: string
+          language: string
+          script: string | null
+          voiceover_url: string | null
+          music_url: string | null
+          thumbnail_url: string | null
+          final_video_url: string | null
+          status: string
+          progress: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          video_id: string
+          title: string
+          topic?: string | null
+          category: string
+          visual_style: string
+          style_tone: string
+          target_audience: string
+          video_format: string
+          ai_voice: string
+          language: string
+          script?: string | null
+          voiceover_url?: string | null
+          music_url?: string | null
+          thumbnail_url?: string | null
+          final_video_url?: string | null
+          status?: string
+          progress?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          video_id?: string
+          title?: string
+          topic?: string | null
+          category?: string
+          visual_style?: string
+          style_tone?: string
+          target_audience?: string
+          video_format?: string
+          ai_voice?: string
+          language?: string
+          script?: string | null
+          voiceover_url?: string | null
+          music_url?: string | null
+          thumbnail_url?: string | null
+          final_video_url?: string | null
+          status?: string
+          progress?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
       trending_topics: {
         Row: {
           id: string

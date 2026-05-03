@@ -5,6 +5,7 @@ import { Layout } from './components/Layout';
 import type { Page } from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
+import { supabase } from './lib/supabase';
 
 import TrendAnalyzer from './pages/TrendAnalyzer';
 import Orders from './pages/Orders';
@@ -15,7 +16,7 @@ import AutoSeries from './pages/AutoSeries';
 import Agents from './pages/Agents';
 
 // Layout wrapper to handle internal navigation state
-function MainLayout() {
+function MainLayout({ onLogout }: { onLogout: () => Promise<void> }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { fetchInitialData, subscribeToChanges } = usePipelineStore();
@@ -34,7 +35,7 @@ function MainLayout() {
   };
 
   return (
-    <Layout currentPage={currentPage} onNavigate={handleNavigate}>
+    <Layout currentPage={currentPage} onNavigate={handleNavigate} onLogout={onLogout}>
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/autoseries" element={<AutoSeries />} />
@@ -52,24 +53,47 @@ function MainLayout() {
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Auto-login for dev if desired, but let's keep the real login flow
-  // For now, let's just make it possible to bypass login in development or show login
   useEffect(() => {
-    const token = localStorage.getItem('videomill_auth');
-    if (token) setIsAuthenticated(true);
+    // Check initial auth state
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsAuthenticated(!!session);
+      setLoading(false);
+    };
+
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setIsAuthenticated(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">Laster...</div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
-    return <Login onLogin={() => {
-      localStorage.setItem('videomill_auth', 'true');
-      setIsAuthenticated(true);
-    }} />;
+    return <Login onSuccess={() => setIsAuthenticated(true)} />;
   }
 
   return (
     <BrowserRouter>
-      <MainLayout />
+      <MainLayout onLogout={handleLogout} />
     </BrowserRouter>
   );
 }

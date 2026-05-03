@@ -110,8 +110,9 @@ export const usePipelineStore = create<StoreState>((set, get) => ({
           console.error('Failed to insert order to Supabase:', error);
           alert('DATABASE ERROR:\n' + error.message + '\n\nDetails: ' + error.details);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error inserting order:', err);
+        alert('CRITICAL ERROR:\n' + (err.message || String(err)));
       }
     }
   },
